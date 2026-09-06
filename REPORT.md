@@ -12,7 +12,7 @@ The requested tensor-only TQSI architecture, dataset pipeline, notebook, continu
 - A separate 16/16/16-tile per-task run exercised replay, held-out evaluation and visual artifacts. Resuming after task 0 produced a bit-identical final model and equal test-IoU matrix.
 - Toy quantum/MLP/orthogonal controls ran with and without stability regularization, for 20 steps/task, one seed. These are measured diagnostics, not completed three-seed research comparisons.
 
-Compact numerical evidence is in `validation/`. Raw checkpoints, prediction images/logits, split manifests and plots stay in the ignored local `outputs/` directories.
+Compact numerical evidence is in `validation/`. Raw checkpoints, prediction images/logits, split manifests, plots and the executed notebook are published in `outputs/`; model checkpoints use Git LFS.
 
 ## Real SAM smoke metrics
 

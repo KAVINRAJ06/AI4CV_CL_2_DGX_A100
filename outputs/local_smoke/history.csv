@@ -1,0 +1,2 @@
+task,epoch,lr,seconds,train_accuracy,train_loss,train_iou,train_dice,train_miou,train_biou,val_accuracy,val_loss,val_iou,val_dice,val_miou,val_biou,separation,stability_loss,replay_loss
+landcover_buildings,1,0.0001,12.33751390001271,0.991302490234375,1.6535468399524689,0.0,0.0,0.4956512451171875,0.0,1.0,1.667541265487671,nan,nan,1.0,nan,0.0,0.0,0.0

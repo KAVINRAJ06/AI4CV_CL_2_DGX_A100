@@ -1,0 +1,151 @@
+{
+  "shared_unitary_separation_claim": "mathematically impossible; invariant tested",
+  "parameter_matching": "Not matched: exact counts in baseline_table.csv; dense B1/B2 exceed circuit count",
+  "quantum_advantage": "not established",
+  "rows": [
+    {
+      "seed": 0,
+      "kind": "quantum",
+      "strategy": "qubit",
+      "lambda_stab": 0.0,
+      "parameter_count": 48,
+      "seconds": 3.141382700006943,
+      "overlap": 0.012075590901076794,
+      "old_task_stability": 0.7206634879112244,
+      "invariant_error": 1.3969838619232178e-08,
+      "separation_gradient_max": 8.905772119760513e-09
+    },
+    {
+      "seed": 0,
+      "kind": "quantum",
+      "strategy": "qubit",
+      "lambda_stab": 0.1,
+      "parameter_count": 48,
+      "seconds": 3.2026130000012927,
+      "overlap": 0.012075618840754032,
+      "old_task_stability": 0.8744275569915771,
+      "invariant_error": 2.7939677238464355e-09,
+      "separation_gradient_max": 1.1820365131143262e-08
+    },
+    {
+      "seed": 0,
+      "kind": "quantum",
+      "strategy": "layer",
+      "lambda_stab": 0.0,
+      "parameter_count": 48,
+      "seconds": 3.121403500030283,
+      "overlap": 0.012075580656528473,
+      "old_task_stability": 0.7732846140861511,
+      "invariant_error": 2.1420419216156006e-08,
+      "separation_gradient_max": 1.3748299387827956e-08
+    },
+    {
+      "seed": 0,
+      "kind": "quantum",
+      "strategy": "layer",
+      "lambda_stab": 0.1,
+      "parameter_count": 48,
+      "seconds": 3.152777999988757,
+      "overlap": 0.012075590901076794,
+      "old_task_stability": 0.9018518328666687,
+      "invariant_error": 1.5832483768463135e-08,
+      "separation_gradient_max": 1.7656383022313094e-08
+    },
+    {
+      "seed": 0,
+      "kind": "classical_unconstrained",
+      "strategy": "qubit",
+      "lambda_stab": 0.0,
+      "parameter_count": 476,
+      "seconds": 0.14090779999969527,
+      "overlap": 0.15555107593536377,
+      "old_task_stability": 0.8058174848556519,
+      "invariant_error": 0.0005019307136535645,
+      "separation_gradient_max": 0.2578009068965912
+    },
+    {
+      "seed": 0,
+      "kind": "classical_unconstrained",
+      "strategy": "qubit",
+      "lambda_stab": 0.1,
+      "parameter_count": 476,
+      "seconds": 0.11903239996172488,
+      "overlap": 0.20323969423770905,
+      "old_task_stability": 0.9406949877738953,
+      "invariant_error": 0.01922386884689331,
+      "separation_gradient_max": 0.2836339473724365
+    },
+    {
+      "seed": 0,
+      "kind": "classical_unconstrained",
+      "strategy": "layer",
+      "lambda_stab": 0.0,
+      "parameter_count": 476,
+      "seconds": 0.1095161999692209,
+      "overlap": 0.15555107593536377,
+      "old_task_stability": 0.8058174848556519,
+      "invariant_error": 0.0005019307136535645,
+      "separation_gradient_max": 0.2578009068965912
+    },
+    {
+      "seed": 0,
+      "kind": "classical_unconstrained",
+      "strategy": "layer",
+      "lambda_stab": 0.1,
+      "parameter_count": 476,
+      "seconds": 0.11066220002248883,
+      "overlap": 0.20323969423770905,
+      "old_task_stability": 0.9406949877738953,
+      "invariant_error": 0.01922386884689331,
+      "separation_gradient_max": 0.2836339473724365
+    },
+    {
+      "seed": 0,
+      "kind": "classical_orthogonal",
+      "strategy": "qubit",
+      "lambda_stab": 0.0,
+      "parameter_count": 460,
+      "seconds": 0.18591810000361875,
+      "overlap": 0.0014152299845591187,
+      "old_task_stability": 0.7351879477500916,
+      "invariant_error": 0.0,
+      "separation_gradient_max": 2.2351741790771484e-08
+    },
+    {
+      "seed": 0,
+      "kind": "classical_orthogonal",
+      "strategy": "qubit",
+      "lambda_stab": 0.1,
+      "parameter_count": 460,
+      "seconds": 0.17721049999818206,
+      "overlap": 0.0014152280054986477,
+      "old_task_stability": 0.9752111434936523,
+      "invariant_error": 0.0,
+      "separation_gradient_max": 2.9802322387695312e-08
+    },
+    {
+      "seed": 0,
+      "kind": "classical_orthogonal",
+      "strategy": "layer",
+      "lambda_stab": 0.0,
+      "parameter_count": 460,
+      "seconds": 0.1738504000240937,
+      "overlap": 0.0014152299845591187,
+      "old_task_stability": 0.7351879477500916,
+      "invariant_error": 0.0,
+      "separation_gradient_max": 2.2351741790771484e-08
+    },
+    {
+      "seed": 0,
+      "kind": "classical_orthogonal",
+      "strategy": "layer",
+      "lambda_stab": 0.1,
+      "parameter_count": 460,
+      "seconds": 0.17149780003819615,
+      "overlap": 0.0014152280054986477,
+      "old_task_stability": 0.9752111434936523,
+      "invariant_error": 0.0,
+      "separation_gradient_max": 2.9802322387695312e-08
+    }
+  ]
+}

@@ -1,0 +1,1730 @@
+[
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 0,
+    "fit": 0.10563673824071884,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        0.9999997615814209
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 10,
+    "fit": 0.07696961611509323,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 19,
+    "fit": 0.05827837064862251,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        0.9999997615814209
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 0,
+    "fit": 0.1077331081032753,
+    "separation": 0.012075616978108883,
+    "stability_loss": -3.5762786865234375e-07,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.012075582519173622
+      ],
+      [
+        0.012075582519173622,
+        0.9999998807907104
+      ]
+    ],
+    "stability": {
+      "0": 0.9997267723083496
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 10,
+    "fit": 0.08819219470024109,
+    "separation": 0.012075587175786495,
+    "stability_loss": 0.07974541187286377,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999998807907104,
+        0.012075615115463734
+      ],
+      [
+        0.012075615115463734,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.903081476688385
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 19,
+    "fit": 0.07076586037874222,
+    "separation": 0.01207558624446392,
+    "stability_loss": 0.25784140825271606,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.012075590901076794
+      ],
+      [
+        0.012075590901076794,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.7206634879112244
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 0,
+    "fit": 0.10563673824071884,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        0.9999997615814209
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 10,
+    "fit": 0.07696961611509323,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 19,
+    "fit": 0.05827837064862251,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        0.9999997615814209
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 0,
+    "fit": 0.1077331081032753,
+    "separation": 0.012075616978108883,
+    "stability_loss": -3.5762786865234375e-07,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.012075582519173622
+      ],
+      [
+        0.012075582519173622,
+        0.9999998807907104
+      ]
+    ],
+    "stability": {
+      "0": 0.9997267723083496
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 10,
+    "fit": 0.08865535259246826,
+    "separation": 0.012075595557689667,
+    "stability_loss": 0.05326420068740845,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999997615814209,
+        0.012075589038431644
+      ],
+      [
+        0.012075589038431644,
+        1.000000238418579
+      ]
+    ],
+    "stability": {
+      "0": 0.9384088516235352
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 19,
+    "fit": 0.07557036727666855,
+    "separation": 0.012075615115463734,
+    "stability_loss": 0.11932075023651123,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0000004768371582,
+        0.012075618840754032
+      ],
+      [
+        0.012075618840754032,
+        1.000000238418579
+      ]
+    ],
+    "stability": {
+      "0": 0.8744275569915771
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 0,
+    "fit": 0.10563673824071884,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.000000238418579
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 10,
+    "fit": 0.08605770021677017,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.000000238418579
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 19,
+    "fit": 0.07044637948274612,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        0.9999997615814209
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 0,
+    "fit": 0.09371250867843628,
+    "separation": 0.012075582519173622,
+    "stability_loss": 0.0,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.012075589038431644
+      ],
+      [
+        0.012075589038431644,
+        1.000000238418579
+      ]
+    ],
+    "stability": {
+      "0": 0.9997241497039795
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 10,
+    "fit": 0.07213889807462692,
+    "separation": 0.012075605802237988,
+    "stability_loss": 0.07937979698181152,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0000004768371582,
+        0.012075589038431644
+      ],
+      [
+        0.012075589038431644,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9037067294120789
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 19,
+    "fit": 0.05685737729072571,
+    "separation": 0.012075602076947689,
+    "stability_loss": 0.216833233833313,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.012075580656528473
+      ],
+      [
+        0.012075580656528473,
+        0.9999997615814209
+      ]
+    ],
+    "stability": {
+      "0": 0.7732846140861511
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 0,
+    "fit": 0.10563673824071884,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.000000238418579
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 10,
+    "fit": 0.08605770021677017,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.000000238418579
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 19,
+    "fit": 0.07044637948274612,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        0.9999997615814209
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 0,
+    "fit": 0.09371250867843628,
+    "separation": 0.012075582519173622,
+    "stability_loss": 0.0,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.012075589038431644
+      ],
+      [
+        0.012075589038431644,
+        1.000000238418579
+      ]
+    ],
+    "stability": {
+      "0": 0.9997241497039795
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 10,
+    "fit": 0.07285083085298538,
+    "separation": 0.012075592763721943,
+    "stability_loss": 0.04393172264099121,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.012075592763721943
+      ],
+      [
+        0.012075592763721943,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9516746401786804
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "quantum",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 19,
+    "fit": 0.05689222738146782,
+    "separation": 0.012075605802237988,
+    "stability_loss": 0.09037399291992188,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999997615814209,
+        0.012075590901076794
+      ],
+      [
+        0.012075590901076794,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9018518328666687
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 0,
+    "fit": 0.061972182244062424,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.000000238418579
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 10,
+    "fit": 0.014590890146791935,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 19,
+    "fit": 0.004992358852177858,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        0.9999998807907104
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 0,
+    "fit": 0.04995300993323326,
+    "separation": 0.8791186213493347,
+    "stability_loss": 0.0,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999998807907104,
+        0.8730894923210144
+      ],
+      [
+        0.8730894923210144,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9993839263916016
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 10,
+    "fit": 0.02196727879345417,
+    "separation": 0.6491051316261292,
+    "stability_loss": 0.05621248483657837,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.5978166460990906
+      ],
+      [
+        0.5978166460990906,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9371842741966248
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 19,
+    "fit": 0.013059659861028194,
+    "separation": 0.1889929175376892,
+    "stability_loss": 0.17461895942687988,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.15555107593536377
+      ],
+      [
+        0.15555107593536377,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.8058174848556519
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 0,
+    "fit": 0.061972182244062424,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.000000238418579
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 10,
+    "fit": 0.014590890146791935,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 19,
+    "fit": 0.004992358852177858,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        0.9999998807907104
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 0,
+    "fit": 0.04995300993323326,
+    "separation": 0.8791186213493347,
+    "stability_loss": 0.0,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999998807907104,
+        0.8730894923210144
+      ],
+      [
+        0.8730894923210144,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9993839263916016
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 10,
+    "fit": 0.022365355864167213,
+    "separation": 0.652318000793457,
+    "stability_loss": 0.011480093002319336,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.6066264510154724
+      ],
+      [
+        0.6066264510154724,
+        0.9999998807907104
+      ]
+    ],
+    "stability": {
+      "0": 0.9855799078941345
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 19,
+    "fit": 0.012695220299065113,
+    "separation": 0.23611444234848022,
+    "stability_loss": 0.05571484565734863,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999998807907104,
+        0.20323969423770905
+      ],
+      [
+        0.20323969423770905,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9406949877738953
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 0,
+    "fit": 0.061972182244062424,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.000000238418579
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 10,
+    "fit": 0.014590890146791935,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 19,
+    "fit": 0.004992358852177858,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        0.9999998807907104
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 0,
+    "fit": 0.04995300993323326,
+    "separation": 0.8791186213493347,
+    "stability_loss": 0.0,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999998807907104,
+        0.8730894923210144
+      ],
+      [
+        0.8730894923210144,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9993839263916016
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 10,
+    "fit": 0.02196727879345417,
+    "separation": 0.6491051316261292,
+    "stability_loss": 0.05621248483657837,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.5978166460990906
+      ],
+      [
+        0.5978166460990906,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9371842741966248
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 19,
+    "fit": 0.013059659861028194,
+    "separation": 0.1889929175376892,
+    "stability_loss": 0.17461895942687988,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.15555107593536377
+      ],
+      [
+        0.15555107593536377,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.8058174848556519
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 0,
+    "fit": 0.061972182244062424,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.000000238418579
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 10,
+    "fit": 0.014590890146791935,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 19,
+    "fit": 0.004992358852177858,
+    "separation": -0.0,
+    "stability_loss": -0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        0.9999998807907104
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 0,
+    "fit": 0.04995300993323326,
+    "separation": 0.8791186213493347,
+    "stability_loss": 0.0,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999998807907104,
+        0.8730894923210144
+      ],
+      [
+        0.8730894923210144,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9993839263916016
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 10,
+    "fit": 0.022365355864167213,
+    "separation": 0.652318000793457,
+    "stability_loss": 0.011480093002319336,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.6066264510154724
+      ],
+      [
+        0.6066264510154724,
+        0.9999998807907104
+      ]
+    ],
+    "stability": {
+      "0": 0.9855799078941345
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_unconstrained",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 19,
+    "fit": 0.012695220299065113,
+    "separation": 0.23611444234848022,
+    "stability_loss": 0.05571484565734863,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999998807907104,
+        0.20323969423770905
+      ],
+      [
+        0.20323969423770905,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9406949877738953
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 0,
+    "fit": 0.08451277017593384,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 10,
+    "fit": 0.013120896182954311,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 19,
+    "fit": 0.0039433506317436695,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 0,
+    "fit": 0.1052856519818306,
+    "separation": 0.0014152313815429807,
+    "stability_loss": -1.1920928955078125e-07,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.0014152313815429807
+      ],
+      [
+        0.0014152313815429807,
+        1.000000238418579
+      ]
+    ],
+    "stability": {
+      "0": 0.9994474649429321
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 10,
+    "fit": 0.028779277577996254,
+    "separation": 0.0014152321964502335,
+    "stability_loss": 0.13184648752212524,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999997615814209,
+        0.001415229169651866
+      ],
+      [
+        0.001415229169651866,
+        0.9999997615814209
+      ]
+    ],
+    "stability": {
+      "0": 0.8470893502235413
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "qubit",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 19,
+    "fit": 0.008048489689826965,
+    "separation": 0.0014152341755107045,
+    "stability_loss": 0.25794386863708496,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.000000238418579,
+        0.0014152299845591187
+      ],
+      [
+        0.0014152299845591187,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.7351879477500916
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 0,
+    "fit": 0.08451277017593384,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 10,
+    "fit": 0.013120896182954311,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 19,
+    "fit": 0.0039433506317436695,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 0,
+    "fit": 0.1052856519818306,
+    "separation": 0.0014152313815429807,
+    "stability_loss": -1.1920928955078125e-07,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.0014152313815429807
+      ],
+      [
+        0.0014152313815429807,
+        1.000000238418579
+      ]
+    ],
+    "stability": {
+      "0": 0.9994474649429321
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 10,
+    "fit": 0.029289958998560905,
+    "separation": 0.0014152335934340954,
+    "stability_loss": 0.052530765533447266,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999997615814209,
+        0.0014152335934340954
+      ],
+      [
+        0.0014152335934340954,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9457576870918274
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "qubit",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 19,
+    "fit": 0.009841459803283215,
+    "separation": 0.0014152313815429807,
+    "stability_loss": 0.02883148193359375,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999997615814209,
+        0.0014152280054986477
+      ],
+      [
+        0.0014152280054986477,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9752111434936523
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 0,
+    "fit": 0.08451277017593384,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 10,
+    "fit": 0.013120896182954311,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 0,
+    "step": 19,
+    "fit": 0.0039433506317436695,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 0,
+    "fit": 0.1052856519818306,
+    "separation": 0.0014152313815429807,
+    "stability_loss": -1.1920928955078125e-07,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.0014152313815429807
+      ],
+      [
+        0.0014152313815429807,
+        1.000000238418579
+      ]
+    ],
+    "stability": {
+      "0": 0.9994474649429321
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 10,
+    "fit": 0.028779277577996254,
+    "separation": 0.0014152321964502335,
+    "stability_loss": 0.13184648752212524,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999997615814209,
+        0.001415229169651866
+      ],
+      [
+        0.001415229169651866,
+        0.9999997615814209
+      ]
+    ],
+    "stability": {
+      "0": 0.8470893502235413
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "layer",
+    "lambda_stab": 0.0,
+    "task": 1,
+    "step": 19,
+    "fit": 0.008048489689826965,
+    "separation": 0.0014152341755107045,
+    "stability_loss": 0.25794386863708496,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.000000238418579,
+        0.0014152299845591187
+      ],
+      [
+        0.0014152299845591187,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.7351879477500916
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 0,
+    "fit": 0.08451277017593384,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 10,
+    "fit": 0.013120896182954311,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 0,
+    "step": 19,
+    "fit": 0.0039433506317436695,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "tasks": [
+      0
+    ],
+    "overlap": [
+      [
+        1.0
+      ]
+    ],
+    "stability": {}
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 0,
+    "fit": 0.1052856519818306,
+    "separation": 0.0014152313815429807,
+    "stability_loss": -1.1920928955078125e-07,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        1.0,
+        0.0014152313815429807
+      ],
+      [
+        0.0014152313815429807,
+        1.000000238418579
+      ]
+    ],
+    "stability": {
+      "0": 0.9994474649429321
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 10,
+    "fit": 0.029289958998560905,
+    "separation": 0.0014152335934340954,
+    "stability_loss": 0.052530765533447266,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999997615814209,
+        0.0014152335934340954
+      ],
+      [
+        0.0014152335934340954,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9457576870918274
+    }
+  },
+  {
+    "seed": 0,
+    "kind": "classical_orthogonal",
+    "strategy": "layer",
+    "lambda_stab": 0.1,
+    "task": 1,
+    "step": 19,
+    "fit": 0.009841459803283215,
+    "separation": 0.0014152313815429807,
+    "stability_loss": 0.02883148193359375,
+    "tasks": [
+      0,
+      1
+    ],
+    "overlap": [
+      [
+        0.9999997615814209,
+        0.0014152280054986477
+      ],
+      [
+        0.0014152280054986477,
+        1.0
+      ]
+    ],
+    "stability": {
+      "0": 0.9752111434936523
+    }
+  }
+]

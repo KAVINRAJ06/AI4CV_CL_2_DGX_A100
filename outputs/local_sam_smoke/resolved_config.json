@@ -1,0 +1,43 @@
+{
+  "seed": 42,
+  "device": "cuda",
+  "cpu_threads": 4,
+  "output_dir": "outputs/local_sam_smoke",
+  "dataset_root": "D:/AI4CV_CL_DGX_A100/A100_datasets",
+  "tasks": [
+    "configs/datasets/landcover_buildings.yaml",
+    "configs/datasets/openearthmap_buildings.yaml"
+  ],
+  "image_size": 256,
+  "epochs": 1,
+  "batch_size": 1,
+  "workers": 0,
+  "lr": 0.0001,
+  "weight_decay": 0.0,
+  "grad_clip": 1.0,
+  "lambda_sep": 0.1,
+  "lambda_stab": 0.1,
+  "reference_samples": 1,
+  "tsne_samples_per_task": 8,
+  "replay": {
+    "samples_per_task": 0,
+    "batch_size": 0,
+    "weight": 1.0
+  },
+  "model": {
+    "backbone": "sam",
+    "sam_checkpoint": "D:/AI4CV_CL_DGX_A100/models/sam_vit_b_01ec64.pth",
+    "sam_variant": "vit_b",
+    "bottleneck_type": "quantum",
+    "n_qubits": 8,
+    "n_layers": 6,
+    "mask_strategy": "qubit",
+    "hidden_dim": 96,
+    "num_classes": 1
+  },
+  "max_samples": {
+    "train": 2,
+    "val": 2,
+    "test": 2
+  }
+}

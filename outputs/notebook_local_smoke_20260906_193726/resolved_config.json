@@ -1,0 +1,43 @@
+{
+  "seed": 42,
+  "device": "cpu",
+  "cpu_threads": 4,
+  "output_dir": "D:\\AI4CV_CL_2_DGX_A100\\outputs\\notebook_local_smoke_20260906_193726",
+  "dataset_root": "D:/AI4CV_CL_DGX_A100/A100_datasets",
+  "tasks": [
+    "configs/datasets/landcover_buildings.yaml",
+    "configs/datasets/openearthmap_buildings.yaml"
+  ],
+  "image_size": 64,
+  "epochs": 1,
+  "batch_size": 2,
+  "workers": 0,
+  "lr": 0.0001,
+  "weight_decay": 0.0,
+  "grad_clip": 1.0,
+  "lambda_sep": 0.1,
+  "lambda_stab": 0.1,
+  "reference_samples": 2,
+  "tsne_samples_per_task": 8,
+  "replay": {
+    "samples_per_task": 2,
+    "batch_size": 1,
+    "weight": 1.0
+  },
+  "model": {
+    "backbone": "tiny",
+    "sam_checkpoint": "D:/AI4CV_CL_DGX_A100/models/sam_vit_b_01ec64.pth",
+    "sam_variant": "vit_b",
+    "bottleneck_type": "quantum",
+    "n_qubits": 4,
+    "n_layers": 2,
+    "mask_strategy": "qubit",
+    "hidden_dim": 96,
+    "num_classes": 1
+  },
+  "max_samples": {
+    "train": 16,
+    "val": 16,
+    "test": 16
+  }
+}

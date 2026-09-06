@@ -1,0 +1,9 @@
+{
+  "torch": "2.5.1+cu121",
+  "device": "cpu",
+  "world_size": 1,
+  "trainable_parameters": 1000,
+  "bottleneck_parameters": 24,
+  "backbone": "tiny",
+  "bounded_smoke": true
+}

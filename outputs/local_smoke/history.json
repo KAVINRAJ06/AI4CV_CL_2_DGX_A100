@@ -1,0 +1,23 @@
+[
+  {
+    "task": "landcover_buildings",
+    "epoch": 1,
+    "lr": 0.0001,
+    "seconds": 12.33751390001271,
+    "train_accuracy": 0.991302490234375,
+    "train_loss": 1.6535468399524689,
+    "train_iou": 0.0,
+    "train_dice": 0.0,
+    "train_miou": 0.4956512451171875,
+    "train_biou": 0.0,
+    "val_accuracy": 1.0,
+    "val_loss": 1.667541265487671,
+    "val_iou": null,
+    "val_dice": null,
+    "val_miou": 1.0,
+    "val_biou": null,
+    "separation": 0.0,
+    "stability_loss": 0.0,
+    "replay_loss": 0.0
+  }
+]

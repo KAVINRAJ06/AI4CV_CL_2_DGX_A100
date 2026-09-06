@@ -1,0 +1,32 @@
+{
+  "last_iou": 0.0,
+  "avg_iou": 0.0,
+  "ff_iou": 0.0,
+  "per_task_forgetting": [
+    0.0,
+    0.0
+  ],
+  "router": {
+    "task_accuracy": 0.5,
+    "confusion": [
+      [
+        1,
+        15
+      ],
+      [
+        1,
+        15
+      ]
+    ],
+    "segmentation_routing": "oracle and router logits identical: task masks affect training only"
+  },
+  "benchmark_target": {
+    "val_accuracy": 0.904,
+    "val_dice": 0.7448,
+    "reported_iou": 0.6277,
+    "val_biou": 0.274,
+    "comparable": false,
+    "reason": "Original benchmark split, task, resolution and aggregation are unspecified"
+  },
+  "smoke_only": true
+}
