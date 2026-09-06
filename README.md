@@ -43,6 +43,8 @@ Run the capacity gate before DGX continual learning:
 .venv-cuda/Scripts/python.exe -m tqsi.train --config configs/local_sam_overfit.yaml
 ```
 
+The accuracy-first capacity gate is `configs/local_sam_capacity.yaml`. It audits raw labels, source geometry, foreground tile coverage and RGB/mask overlays before fitting eight foreground-balanced tiles. It must reach train-diagnostic Dice `0.95` before a benchmark run. `configs/dgx_sota_single_task.yaml` selects checkpoints by foreground validation IoU and the full 512px validation gate is `0.6277`; do not start continual learning until it passes.
+
 Its `val` rows are deliberately marked `train_diagnostic`: they use the same eight balanced training tiles to test fitting capacity. A low Dice here means the model/adapter needs redesign. A high Dice only shows the path can fit those examples; then run the separate held-out real-SAM diagnostic and single-task DGX baseline.
 
 Default dataset root: `D:/AI4CV_CL_DGX_A100/A100_datasets`. Default checkpoint: `D:/AI4CV_CL_DGX_A100/models/sam_vit_b_01ec64.pth`. No dataset or checkpoint is committed. The explicit `scripts/download_sam_checkpoint.py` helper downloads SAM if needed.

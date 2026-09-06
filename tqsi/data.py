@@ -129,6 +129,42 @@ def prepare_manifest(cfg, directory, seed=42):
     return manifest
 
 
+def dataset_audit(cfg, manifest, directory, overlay_count=4):
+    """Audit raw labels and tiled foreground coverage before optimization."""
+    root, directory = Path(cfg["root"]), Path(directory)
+    report = {"task": cfg["name"], "raw_label_histogram": {}, "splits": {}, "alignment_errors": []}
+    overlays = directory / "audit_overlays"
+    overlays.mkdir(parents=True, exist_ok=True)
+    for split, pairs in manifest["splits"].items():
+        tiles = SegmentationDataset(cfg, pairs)
+        counts = [tiles._foreground_count(i) for i in range(len(tiles))]
+        report["splits"][split] = dict(sources=len(pairs), tiles=len(tiles), foreground_tiles=sum(c > 0 for c in counts),
+            foreground_fraction=float(sum(counts) / max(1, sum((b[2]-b[0])*(b[3]-b[1]) for _, b in tiles.samples))) )
+        for pair in pairs:
+            with Image.open(root / pair["image"]) as image, Image.open(root / pair["mask"]) as mask:
+                if image.size != mask.size:
+                    report["alignment_errors"].append(pair["id"])
+                raw = np.asarray(mask)
+                if raw.ndim == 2:
+                    labels, amount = np.unique(raw, return_counts=True)
+                    for label, n in zip(labels, amount):
+                        report["raw_label_histogram"][str(int(label))] = report["raw_label_histogram"].get(str(int(label)), 0) + int(n)
+        for index in range(min(overlay_count, len(tiles))):
+            image, target = tiles[index]
+            rgb = (image.permute(1, 2, 0).numpy()*255).astype(np.uint8)
+            rgb[target.numpy() == 1] = (0.45*rgb[target.numpy() == 1] + 0.55*np.array([255, 0, 0])).astype(np.uint8)
+            Image.fromarray(rgb).save(overlays / f"{cfg['name']}_{split}_{index}.png")
+    if report["alignment_errors"]:
+        raise ValueError(f"Image/mask geometry mismatch: {report['alignment_errors'][:3]}")
+    foreground = set(map(int, cfg.get("foreground_labels", [])))
+    if not foreground or not any(str(label) in report["raw_label_histogram"] for label in foreground):
+        raise ValueError(f"Configured foreground labels {sorted(foreground)} are absent from {cfg['name']}")
+    if not report["splits"]["train"]["foreground_tiles"] or not report["splits"]["val"]["foreground_tiles"]:
+        raise ValueError("Train and validation must each contain at least one foreground tile")
+    (directory / "dataset_audit.json").write_text(json.dumps(report, indent=2))
+    return report
+
+
 class SegmentationDataset(Dataset):
     def __init__(self, cfg, pairs, augment=False, limit=None, sampling=None):
         self.cfg, self.augment = cfg, augment

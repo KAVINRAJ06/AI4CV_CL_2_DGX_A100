@@ -13,7 +13,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, DistributedSampler
 from .artifacts import write_json, history_artifacts, predictions, tsne
 from .config import load_config
-from .data import prepare_manifest, SegmentationDataset
+from .data import prepare_manifest, SegmentationDataset, dataset_audit
 from .model import TQSI
 from .continual import TaskController, segmentation_loss, masked_step
 from .metrics import Metrics, forgetting
@@ -87,9 +87,11 @@ def save_checkpoint(path, state):
     temporary.replace(path)
 
 
-def selection_score(metrics):
-    """Prefer defined Dice; if a bounded split is all-empty, minimize val loss."""
-    value = metrics["dice"]
+def selection_score(metrics, metric="iou"):
+    """Select by the configured foreground validation metric, never accuracy."""
+    if metric not in ("iou", "dice", "biou"):
+        raise ValueError("selection_metric must be iou, dice or biou")
+    value = metrics[metric]
     if np.isfinite(value):
         return (1, value)
     if not np.isfinite(metrics["loss"]):
@@ -202,7 +204,8 @@ def run(config, resume=None):
     manifest_dir = out / "splits"
     if rank == 0:
         for task in tasks:
-            prepare_manifest(task, manifest_dir, cfg.get("split_seed", 42))
+            manifest = prepare_manifest(task, manifest_dir, cfg.get("split_seed", 42))
+            dataset_audit(task, manifest, out, int(cfg.get("audit_overlay_count", 4)))
     if distributed:
         dist.barrier()
     import json
@@ -343,12 +346,12 @@ def run(config, resume=None):
                     if cfg.get("fail_on_foreground_collapse", False) and epoch + 1 >= patience:
                         raise RuntimeError(message)
                     warnings.warn(message)
-                score = selection_score(val_metrics)
+                score = selection_score(val_metrics, cfg.get("selection_metric", "iou"))
                 if score > best:
                     best = score
                     save_checkpoint(out / f"task_{task_id}_best.pt", dict(model=model.state_dict(), config=cfg, val=val_metrics, epoch=epoch+1, decision_threshold=threshold,
                         validation_source=row["validation_source"],
-                        selection="val_dice" if score[0] else "val_loss_fallback_undefined_dice"))
+                        selection=f"val_{cfg.get('selection_metric', 'iou')}" if score[0] else "val_loss_fallback_undefined_metric"))
                 history_artifacts(out, history, diagnostics)
             scheduler.step()
             if distributed:
@@ -357,6 +360,12 @@ def run(config, resume=None):
         selected = load_checkpoint(out / f"task_{task_id}_best.pt", device)
         model.load_state_dict(selected["model"])
         decision_thresholds[task_id] = selected.get("decision_threshold", 0.0)
+        capacity = cfg.get("capacity_test")
+        if capacity and task_id == 0:
+            required = float(capacity.get("min_train_dice", .95))
+            observed = float(selected["val"]["dice"])
+            if observed < required:
+                raise RuntimeError(f"Capacity gate failed: train-diagnostic Dice {observed:.4f} < {required:.4f}. Fix data/model before benchmark training.")
         controller.freeze(task_id, model.bottleneck)
         memory_size = cfg.get("replay", {}).get("samples_per_task", 0)
         if memory_size:
@@ -371,6 +380,10 @@ def run(config, resume=None):
                 threshold = decision_thresholds.get(old_task, 0.0)
                 result = evaluate(model, test_loaders[old_task], device, cfg.get("loss"), threshold)
                 result["decision_threshold"] = threshold
+                if old_task < task_id and cfg.get("max_old_task_iou_drop") is not None:
+                    prior = [previous[old_task] for previous in matrix if old_task < len(previous) and np.isfinite(previous[old_task])]
+                    if prior and max(prior) - result["iou"] > float(cfg["max_old_task_iou_drop"]):
+                        raise RuntimeError(f"Continual quality gate failed for {tasks[old_task]['name']}: IoU dropped {max(prior)-result['iou']:.4f}, limit is {cfg['max_old_task_iou_drop']:.4f}")
                 row[old_task] = result["iou"]
                 evaluations[tasks[old_task]["name"]] = result
                 predictions(model, test_loaders[old_task], out / f"after_{task_id}_task_{old_task}_predictions.png", device, threshold=threshold)

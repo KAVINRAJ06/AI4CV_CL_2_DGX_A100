@@ -4,7 +4,7 @@ import torch
 from tqsi.bottlenecks import QuantumBottleneck, OrthogonalBottleneck, MLPBottleneck, normalize
 from tqsi.continual import fidelity, masked_step, segmentation_loss
 from tqsi.metrics import Metrics, forgetting
-from tqsi.data import split_pairs, SegmentationDataset, discover, prepare_manifest
+from tqsi.data import split_pairs, SegmentationDataset, discover, prepare_manifest, dataset_audit
 from tqsi.model import TQSI
 
 
@@ -144,6 +144,9 @@ def test_folder_adapter(tmp_path):
     cfg = dict(name="fake", root=str(tmp_path), image_glob="images/*.png", mask_glob="masks/*.png", mask_suffix="_mask", foreground_labels=[255], allowed_labels=[0, 255], image_size=8, tile_size=8)
     pairs, _ = discover(cfg)
     manifest = prepare_manifest(cfg, tmp_path / "splits")
+    audit = dataset_audit(cfg, manifest, tmp_path / "audit")
+    assert audit["splits"]["train"]["foreground_tiles"] > 0
+    assert (tmp_path / "audit" / "dataset_audit.json").exists()
     dataset = SegmentationDataset(cfg, manifest["splits"]["train"])
     assert len(dataset) == 28
     image, mask = dataset[0]
@@ -195,19 +198,20 @@ def test_spatial_decoder_projection_preserves_frozen_backbone():
 
 def test_film_spatial_decoder_accepts_tensors_and_trains():
     model = TQSI(dict(backbone="tiny", bottleneck_type="quantum", n_qubits=3, n_layers=2,
-                      decoder_mode="spatial_fpn", decoder_width=32, decoder_image_refiner=True), 2)
+                      decoder_mode="spatial_fpn", decoder_width=32, decoder_image_refiner=True, adapter_rank=4), 2)
     logits = model(torch.rand(2, 3, 32, 48))
     assert logits.shape == (2, 1, 32, 48)
     segmentation_loss(logits, torch.randint(2, (2, 32, 48))).backward()
     assert model.spatial_decoder.film.weight.grad.abs().sum() > 0
     assert model.spatial_decoder.stem[0].weight.grad.abs().sum() > 0
+    assert model.feature_adapter.up.weight.grad.abs().sum() > 0
     assert all(p.grad is None for p in model.backbone.parameters())
 
 
 def test_empty_foreground_checkpoint_selection():
     from tqsi.train import selection_score
-    assert selection_score(dict(dice=float('nan'), loss=1.)) > (-1, -float('inf'))
-    assert selection_score(dict(dice=0., loss=2.)) > selection_score(dict(dice=float('nan'), loss=1.))
+    assert selection_score(dict(iou=float('nan'), loss=1.)) > (-1, -float('inf'))
+    assert selection_score(dict(iou=0., loss=2.)) > selection_score(dict(iou=float('nan'), loss=1.))
 
 
 def test_tiff_crop_matches_pillow(tmp_path):

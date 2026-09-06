@@ -115,6 +115,19 @@ class FiLMSpatialDecoder(nn.Module):
         return x
 
 
+class SpatialLoRAAdapter(nn.Module):
+    """Low-rank residual adapter on frozen SAM spatial features."""
+    def __init__(self, channels, rank=16):
+        super().__init__()
+        self.down = nn.Conv2d(channels, rank, 1, bias=False)
+        self.up = nn.Conv2d(rank, channels, 1, bias=False)
+        nn.init.zeros_(self.up.weight)
+        self.scale = nn.Parameter(torch.tensor(1.0))
+
+    def forward(self, features):
+        return features + self.scale * self.up(F.gelu(self.down(features)))
+
+
 class TQSI(nn.Module):
     """forward: float RGB [B,3,H,W] in [0,1] -> raw logits [B,K,H,W]."""
     def __init__(self, cfg, n_tasks):
@@ -144,6 +157,9 @@ class TQSI(nn.Module):
                 nn.Conv2d(self.backbone.channels, self.classes*self.backbone.channels, 1),
             )
         self.spatial_decoder = None
+        self.feature_adapter = None
+        if int(cfg.get("adapter_rank", 0)) > 0:
+            self.feature_adapter = SpatialLoRAAdapter(self.backbone.channels, int(cfg["adapter_rank"]))
         if self.decoder_mode == "spatial_fpn":
             self.spatial_decoder = FiLMSpatialDecoder(
                 self.backbone.channels, self.bottleneck.readout_dim, self.classes,
@@ -152,10 +168,15 @@ class TQSI(nn.Module):
             )
 
     def representation(self, images):
-        return normalize(self.projection(self.backbone.encode(images)))
+        z = self.backbone.encode(images)
+        if self.feature_adapter is not None:
+            z = self.feature_adapter(z)
+        return normalize(self.projection(z))
 
     def forward(self, images):
         z = self.backbone.encode(images)
+        if self.feature_adapter is not None:
+            z = self.feature_adapter(z)
         h = normalize(self.projection(z))
         r = self.bottleneck(h)
         if self.decoder_mode == "spatial_fpn":

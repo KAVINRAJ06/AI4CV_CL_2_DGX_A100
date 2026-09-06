@@ -7,5 +7,6 @@ tasks:
 # Label rehearsal protects segmentation quality; functional distillation keeps
 # stored pixel logits stable while later tasks train the shared decoder.
 replay: {samples_per_task: 256, batch_size: 8, weight: 1.0, distill_weight: 0.25}
+max_old_task_iou_drop: 0.05
 reference_samples: 32
 tsne_samples_per_task: 512

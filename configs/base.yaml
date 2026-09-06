@@ -33,6 +33,8 @@ fail_on_foreground_collapse: false
 foreground_collapse_patience: 1
 reference_samples: 8
 tsne_samples_per_task: 128
+selection_metric: iou
+audit_overlay_count: 4
 replay:
   samples_per_task: 0
   batch_size: 0
@@ -56,3 +58,5 @@ model:
   decoder_width: 192
   decoder_dropout: 0.1
   decoder_image_refiner: true
+  # Low-rank trainable residual adapter over frozen SAM feature maps.
+  adapter_rank: 16
