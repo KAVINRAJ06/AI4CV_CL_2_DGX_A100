@@ -1,7 +1,7 @@
 # Diagnostic only: use this before an expensive DGX run to ensure the full
 # frozen-SAM prompt path can fit a balanced handful of labelled tiles.
 extends: local_sam_smoke.yaml
-output_dir: outputs/local_sam_overfit
+output_dir: outputs/local_sam_overfit_v2
 device: cuda
 epochs: 30
 lr: 0.001
