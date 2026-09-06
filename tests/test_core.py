@@ -116,6 +116,13 @@ def test_validation_threshold_calibration_uses_foreground_ranking():
     assert evaluate(LogitChannel(), batches, "cpu", threshold=threshold)["dice"] == pytest.approx(1.)
 
 
+def test_capacity_diagnostic_config_is_explicit():
+    from tqsi.config import load_config
+    cfg = load_config("configs/local_sam_overfit.yaml")
+    assert cfg["diagnostic_evaluation_split"] == "train"
+    assert cfg["tasks"] == ["configs/datasets/landcover_buildings.yaml"]
+
+
 def test_source_group_splits():
     pairs = [dict(id=f"{i}_{j}", group=str(i)) for i in range(20) for j in range(3)]
     splits = split_pairs(pairs)

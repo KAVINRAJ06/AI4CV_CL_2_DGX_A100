@@ -203,7 +203,19 @@ def run(config, resume=None):
         if cfg["model"]["bottleneck_type"] in ("quantum", "classical_orthogonal") and cfg.get("lambda_sep", .1):
             warnings.warn("Shared unitary/orthogonal transforms preserve overlap. L_sep is a diagnostic constant for fixed inputs; see docs/SPEC_REVIEW.md")
     wrapped = DDP(model, device_ids=[local], broadcast_buffers=False) if distributed else model
-    val_loaders = [loader(d["val"], cfg) for d in datasets]
+    diagnostic_split = cfg.get("diagnostic_evaluation_split")
+    if diagnostic_split not in (None, "train"):
+        raise ValueError("diagnostic_evaluation_split may only be 'train' or omitted")
+    if diagnostic_split == "train":
+        # Capacity diagnostic only. Never use these selected weights as a
+        # generalization claim or final checkpoint for a benchmark.
+        val_datasets = [SegmentationDataset(
+            task, manifest["splits"]["train"], augment=False,
+            limit=cfg.get("max_samples", {}).get("train"), sampling=cfg.get("train_sampling"),
+        ) for task, manifest in zip(tasks, manifests)]
+    else:
+        val_datasets = [d["val"] for d in datasets]
+    val_loaders = [loader(d, cfg) for d in val_datasets]
     test_loaders = [loader(d["test"], cfg) for d in datasets]
     for task_id in range(start_task, len(tasks)):
         seed_all(cfg["seed"]+task_id)
@@ -264,7 +276,8 @@ def run(config, resume=None):
                 train_metrics["loss"] = total/count
                 threshold, threshold_dice = (0.0, float("nan")) if classes != 1 else calibrate_binary_threshold(model, val_loaders[task_id], device)
                 val_metrics = evaluate(model, val_loaders[task_id], device, cfg.get("loss"), threshold)
-                row = dict(task=task_name, epoch=epoch+1, lr=optimizer.param_groups[0]["lr"], seconds=time.perf_counter()-begin)
+                row = dict(task=task_name, epoch=epoch+1, lr=optimizer.param_groups[0]["lr"], seconds=time.perf_counter()-begin,
+                           validation_source="train_diagnostic" if diagnostic_split else "validation")
                 for split, values in (("train", train_metrics), ("val", val_metrics)):
                     keys = ("accuracy", "loss", "iou", "dice", "miou", "biou", "foreground_precision", "foreground_recall", "predicted_foreground_fraction", "foreground_collapse")
                     row.update({f"{split}_{k}": values.get(k) for k in keys})
@@ -283,6 +296,7 @@ def run(config, resume=None):
                 if score > best:
                     best = score
                     save_checkpoint(out / f"task_{task_id}_best.pt", dict(model=model.state_dict(), config=cfg, val=val_metrics, epoch=epoch+1, decision_threshold=threshold,
+                        validation_source=row["validation_source"],
                         selection="val_dice" if score[0] else "val_loss_fallback_undefined_dice"))
                 history_artifacts(out, history, diagnostics)
             scheduler.step()

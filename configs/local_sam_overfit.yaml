@@ -2,8 +2,14 @@
 # frozen-SAM prompt path can fit a balanced handful of labelled tiles.
 extends: local_sam_smoke.yaml
 output_dir: outputs/local_sam_overfit
-epochs: 20
+device: cuda
+epochs: 30
+lr: 0.001
 max_samples: {train: 8, val: 8, test: 8}
 replay: {samples_per_task: 0, batch_size: 0, weight: 1.0}
 tasks:
   - configs/datasets/landcover_buildings.yaml
+# Uses the same balanced training tiles for capacity diagnosis only. Its
+# 'val' metrics are explicitly labelled train_diagnostic and are never a
+# generalization claim. Test evaluation remains separate.
+diagnostic_evaluation_split: train

@@ -37,6 +37,14 @@ The old one-epoch `local_smoke` output is intentionally not an accuracy result: 
 
 For binary datasets, the trainer calibrates a per-task logit threshold on validation Dice each epoch and saves that threshold with the validation-selected checkpoint. Test metrics and prediction artifacts use the saved threshold; test masks are never used for calibration.
 
+Run the capacity gate before DGX continual learning:
+
+```powershell
+.venv-cuda/Scripts/python.exe -m tqsi.train --config configs/local_sam_overfit.yaml
+```
+
+Its `val` rows are deliberately marked `train_diagnostic`: they use the same eight balanced training tiles to test fitting capacity. A low Dice here means the model/adapter needs redesign. A high Dice only shows the path can fit those examples; then run the separate held-out real-SAM diagnostic and single-task DGX baseline.
+
 Default dataset root: `D:/AI4CV_CL_DGX_A100/A100_datasets`. Default checkpoint: `D:/AI4CV_CL_DGX_A100/models/sam_vit_b_01ec64.pth`. No dataset or checkpoint is committed. The explicit `scripts/download_sam_checkpoint.py` helper downloads SAM if needed.
 
 Each run requires a new `output_dir`, or an explicit task-boundary resume. If foreground Dice is undefined on an all-empty validation subset, selection falls back to validation loss and records that choice in the checkpoint:
