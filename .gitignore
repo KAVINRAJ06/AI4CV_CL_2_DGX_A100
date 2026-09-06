@@ -1,5 +1,6 @@
 .venv/
 .venv-cuda/
+.conda-cuda/
 __pycache__/
 .pytest_cache/
 *.egg-info/
@@ -21,3 +22,4 @@ outputs/local_sam_learning_debug_v2/
 outputs/local_sam_learning_debug_v3/
 outputs/local_sam_overfit/
 outputs/local_sam_overfit_v2/
+outputs/local_sam_spatial_head_smoke/
