@@ -193,6 +193,17 @@ def test_spatial_decoder_projection_preserves_frozen_backbone():
     assert all(p.grad is None for p in model.backbone.parameters())
 
 
+def test_film_spatial_decoder_accepts_tensors_and_trains():
+    model = TQSI(dict(backbone="tiny", bottleneck_type="quantum", n_qubits=3, n_layers=2,
+                      decoder_mode="spatial_fpn", decoder_width=32, decoder_image_refiner=True), 2)
+    logits = model(torch.rand(2, 3, 32, 48))
+    assert logits.shape == (2, 1, 32, 48)
+    segmentation_loss(logits, torch.randint(2, (2, 32, 48))).backward()
+    assert model.spatial_decoder.film.weight.grad.abs().sum() > 0
+    assert model.spatial_decoder.stem[0].weight.grad.abs().sum() > 0
+    assert all(p.grad is None for p in model.backbone.parameters())
+
+
 def test_empty_foreground_checkpoint_selection():
     from tqsi.train import selection_score
     assert selection_score(dict(dice=float('nan'), loss=1.)) > (-1, -float('inf'))

@@ -1,0 +1,12 @@
+# Bounded real-SAM gate for the high-accuracy spatial decoder. Its metrics
+# are diagnostic only; use dgx_sota_single_task.yaml for the full benchmark.
+extends: local_sam_learning_debug.yaml
+output_dir: outputs/local_sam_spatial_head_smoke
+epochs: 4
+lr: 0.001
+bottleneck_lr: 0.0001
+model:
+  decoder_mode: spatial_fpn
+  decoder_width: 96
+  decoder_dropout: 0.05
+  decoder_image_refiner: true

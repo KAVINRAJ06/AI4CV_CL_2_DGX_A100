@@ -74,6 +74,47 @@ class TinyBackbone(nn.Module):
         return F.interpolate(logits, output_size, mode="bilinear", align_corners=False).reshape(b, k, *output_size)
 
 
+class FiLMSpatialDecoder(nn.Module):
+    """Trainable spatial head conditioned by the global bottleneck readout.
+
+    It predicts logits directly from dense frozen features.  This avoids asking
+    SAM's prompt-conditioned instance mask decoder to act as a semantic
+    segmentation decoder without prompts.
+    """
+    def __init__(self, channels, readout_dim, classes, width=192, dropout=.1, use_image_refiner=True):
+        super().__init__()
+        groups = 8 if width % 8 == 0 else 1
+        self.use_image_refiner = use_image_refiner
+        self.stem = nn.Sequential(nn.Conv2d(channels, width, 3, padding=1, bias=False), nn.GroupNorm(groups, width), nn.GELU())
+        self.film = nn.Linear(readout_dim, 2*width)
+        self.body = nn.Sequential(
+            nn.Conv2d(width, width, 3, padding=1, bias=False), nn.GroupNorm(groups, width), nn.GELU(),
+            nn.Dropout2d(dropout), nn.Conv2d(width, width, 3, padding=1, bias=False), nn.GroupNorm(groups, width), nn.GELU(),
+        )
+        if use_image_refiner:
+            refine_width = max(32, width//2)
+            refine_groups = 8 if refine_width % 8 == 0 else 1
+            self.image = nn.Sequential(nn.Conv2d(3, refine_width, 3, padding=1, bias=False), nn.GroupNorm(refine_groups, refine_width), nn.GELU())
+            self.refine = nn.Sequential(
+                nn.Conv2d(width+refine_width, refine_width, 3, padding=1, bias=False), nn.GroupNorm(refine_groups, refine_width), nn.GELU(),
+                nn.Conv2d(refine_width, classes, 1),
+            )
+        else:
+            self.classifier = nn.Conv2d(width, classes, 1)
+
+    def forward(self, features, readout, image, output_size):
+        x = self.stem(features)
+        scale, shift = self.film(readout).chunk(2, dim=1)
+        x = x * (1 + scale.tanh()[..., None, None]) + shift[..., None, None]
+        x = x + self.body(x)
+        x = F.interpolate(x, output_size, mode="bilinear", align_corners=False)
+        if self.use_image_refiner:
+            x = self.refine(torch.cat((x, self.image(image)), dim=1))
+        else:
+            x = self.classifier(x)
+        return x
+
+
 class TQSI(nn.Module):
     """forward: float RGB [B,3,H,W] in [0,1] -> raw logits [B,K,H,W]."""
     def __init__(self, cfg, n_tasks):
@@ -85,13 +126,29 @@ class TQSI(nn.Module):
         self.bottleneck = build_bottleneck(cfg, n_tasks)
         self.projection = nn.Sequential(nn.AdaptiveAvgPool2d(1), nn.Flatten(),
             nn.Linear(self.backbone.channels, self.bottleneck.feature_dim), nn.LayerNorm(self.bottleneck.feature_dim))
-        self.decoder_head = nn.Linear(self.bottleneck.readout_dim, self.classes*self.backbone.channels)
+        self.decoder_mode = cfg.get("decoder_mode", "sam_prompt")
+        if self.decoder_mode not in ("sam_prompt", "spatial_fpn"):
+            raise ValueError("decoder_mode must be sam_prompt or spatial_fpn")
+        # The prompt projection exists only for the frozen-SAM ablation.  The
+        # spatial decoder owns every trainable segmentation parameter in the
+        # accuracy configuration, so unused prompt weights cannot silently
+        # consume optimizer capacity.
+        self.decoder_head = None
         self.spatial_decoder_head = None
-        if cfg.get("decoder_spatial_adapter", False):
+        if self.decoder_mode == "sam_prompt":
+            self.decoder_head = nn.Linear(self.bottleneck.readout_dim, self.classes*self.backbone.channels)
+        if self.decoder_mode == "sam_prompt" and cfg.get("decoder_spatial_adapter", False):
             self.spatial_decoder_head = nn.Sequential(
                 nn.Conv2d(self.backbone.channels, self.backbone.channels, 1),
                 nn.GELU(),
                 nn.Conv2d(self.backbone.channels, self.classes*self.backbone.channels, 1),
+            )
+        self.spatial_decoder = None
+        if self.decoder_mode == "spatial_fpn":
+            self.spatial_decoder = FiLMSpatialDecoder(
+                self.backbone.channels, self.bottleneck.readout_dim, self.classes,
+                width=int(cfg.get("decoder_width", 192)), dropout=float(cfg.get("decoder_dropout", .1)),
+                use_image_refiner=bool(cfg.get("decoder_image_refiner", True)),
             )
 
     def representation(self, images):
@@ -101,6 +158,8 @@ class TQSI(nn.Module):
         z = self.backbone.encode(images)
         h = normalize(self.projection(z))
         r = self.bottleneck(h)
+        if self.decoder_mode == "spatial_fpn":
+            return self.spatial_decoder(z, r, images, images.shape[-2:])
         prompts = self.decoder_head(r).reshape(len(images), self.classes, self.backbone.channels)
         if self.spatial_decoder_head is not None:
             spatial = self.spatial_decoder_head(z).reshape(len(images), self.classes, self.backbone.channels, *z.shape[-2:])

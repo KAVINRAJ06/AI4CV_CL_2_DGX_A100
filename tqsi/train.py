@@ -102,6 +102,49 @@ def load_checkpoint(path, device="cpu"):
     return torch.load(path, map_location=device, weights_only=False)
 
 
+def unpack_replay(entries, device):
+    """Restore compact replay entries and accept pre-v2 tuple checkpoints."""
+    images, targets, teachers = [], [], []
+    has_teacher = True
+    for entry in entries:
+        if isinstance(entry, dict):
+            images.append(entry["image"].float().div(255.))
+            targets.append(entry["target"].long())
+            if "teacher_logits" in entry:
+                teachers.append(entry["teacher_logits"].float())
+            else:
+                has_teacher = False
+        else:  # trusted legacy checkpoint: (float image, target)
+            images.append(entry[0].float())
+            targets.append(entry[1].long())
+            has_teacher = False
+    return (torch.stack(images).to(device), torch.stack(targets).to(device),
+            torch.stack(teachers).to(device) if has_teacher else None)
+
+
+@torch.no_grad()
+def make_replay_memory(model, dataset, size, device, batch_size):
+    """Store labelled tiles and their selected-model logits for rehearsal.
+
+    Images are uint8 and teacher logits float16 on CPU, making a 256-tile
+    512px memory practical while preserving functional distillation targets.
+    """
+    memory, batch_images, batch_targets = [], [], []
+    model.eval()
+    for index in range(min(size, len(dataset))):
+        image, target = dataset[index]
+        batch_images.append(image)
+        batch_targets.append(target)
+        if len(batch_images) == batch_size or index + 1 == min(size, len(dataset)):
+            images = torch.stack(batch_images).to(device)
+            logits = model(images).cpu().to(torch.float16)
+            for image_i, target_i, logits_i in zip(batch_images, batch_targets, logits):
+                memory.append(dict(image=(image_i.clamp(0, 1)*255).round().to(torch.uint8).cpu(),
+                                   target=target_i.to(torch.int16).cpu(), teacher_logits=logits_i))
+            batch_images, batch_targets = [], []
+    return memory
+
+
 @torch.no_grad()
 def router_report(model, prototypes, loaders, device):
     """Diagnostic task classification; task ID does not alter specified forward."""
@@ -189,11 +232,14 @@ def run(config, resume=None):
         model.load_state_dict(checkpoint["model"])
         controller.load_state_dict(checkpoint["controller"])
         history, diagnostics, matrix = checkpoint["history"], checkpoint["diagnostics"], checkpoint["matrix"]
-        replay = [(x.cpu(), y.cpu()) for x, y in checkpoint["replay"]]
+        replay = checkpoint["replay"]
         prototypes = {t: p.cpu() for t, p in checkpoint["prototypes"].items()}
         decision_thresholds = checkpoint.get("decision_thresholds", {})
         start_task = checkpoint["completed_task"]+1
     params = [p for p in model.parameters() if p.requires_grad]
+    bottleneck_params = [p for p in model.bottleneck.parameters() if p.requires_grad]
+    bottleneck_ids = {id(p) for p in bottleneck_params}
+    head_params = [p for p in params if id(p) not in bottleneck_ids]
     if rank == 0:
         write_json(out / "resolved_config.json", cfg)
         write_json(out / "datasets.json", tasks)
@@ -233,7 +279,10 @@ def run(config, resume=None):
             prototypes[task_id] = ref_z.mean((0, 2, 3)).cpu()
         del reference_x, ref_z
         # Reset moments at each task boundary; resume follows the same policy.
-        optimizer = torch.optim.AdamW(params, lr=cfg["lr"], weight_decay=cfg.get("weight_decay", 0.))
+        optimizer = torch.optim.AdamW([
+            {"params": head_params, "lr": cfg["lr"]},
+            {"params": bottleneck_params, "lr": cfg.get("bottleneck_lr", cfg["lr"])},
+        ], weight_decay=cfg.get("weight_decay", 0.))
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg["epochs"], eta_min=cfg["lr"]*.01)
         best = (-1, -float("inf"))
         for epoch in range(cfg["epochs"]):
@@ -241,27 +290,29 @@ def run(config, resume=None):
                 sampler.set_epoch(epoch)
             model.train()
             metric = Metrics(classes)
-            total, count, sums = 0., 0, [0., 0., 0.]
+            total, count, sums = 0., 0, [0., 0, 0., 0.]
             begin = time.perf_counter()
             for images, targets in train_batches:
                 images, targets = images.to(device), targets.to(device)
                 n = len(images)
-                replay_target = None
+                replay_target = replay_teacher = None
                 if replay and cfg.get("replay", {}).get("batch_size", 0):
                     indices = torch.randint(len(replay), (cfg["replay"]["batch_size"],)).tolist()
-                    rx = torch.stack([replay[i][0] for i in indices]).to(device)
-                    replay_target = torch.stack([replay[i][1] for i in indices]).to(device)
+                    rx, replay_target, replay_teacher = unpack_replay([replay[i] for i in indices], device)
                     images = torch.cat((images, rx))
                 logits = wrapped(images)
                 seg = segmentation_loss(logits[:n], targets, cfg.get("loss"))
                 replay_loss = segmentation_loss(logits[n:], replay_target, cfg.get("loss")) if replay_target is not None else seg*0
+                distill_loss = torch.nn.functional.mse_loss(logits[n:], replay_teacher) if replay_teacher is not None else seg*0
                 sep, stab = controller.losses(model.bottleneck)
-                loss = seg + cfg.get("lambda_sep", .1)*sep + cfg.get("lambda_stab", .1)*stab + cfg.get("replay", {}).get("weight", 1.)*replay_loss
+                loss = (seg + cfg.get("lambda_sep", .1)*sep + cfg.get("lambda_stab", .1)*stab
+                        + cfg.get("replay", {}).get("weight", 1.)*replay_loss
+                        + cfg.get("replay", {}).get("distill_weight", 0.)*distill_loss)
                 masked_step(loss, optimizer, model.bottleneck.masked_parameters(task_id), params, cfg.get("grad_clip", 1.))
                 metric.update(logits[:n].detach(), targets)
                 total += float(seg.detach())*n
                 count += n
-                for i, v in enumerate((sep, stab, replay_loss)):
+                for i, v in enumerate((sep, stab, replay_loss, distill_loss)):
                     sums[i] += float(v.detach())*n
             if distributed:
                 for name in ("cm", "bi", "bu"):
@@ -281,7 +332,7 @@ def run(config, resume=None):
                 for split, values in (("train", train_metrics), ("val", val_metrics)):
                     keys = ("accuracy", "loss", "iou", "dice", "miou", "biou", "foreground_precision", "foreground_recall", "predicted_foreground_fraction", "foreground_collapse")
                     row.update({f"{split}_{k}": values.get(k) for k in keys})
-                row.update(separation=sums[0]/count, stability_loss=sums[1]/count, replay_loss=sums[2]/count,
+                row.update(separation=sums[0]/count, stability_loss=sums[1]/count, replay_loss=sums[2]/count, distill_loss=sums[3]/count,
                            decision_threshold=threshold, calibrated_val_dice=threshold_dice)
                 history.append(row)
                 diagnostics.append(dict(task=task_id, epoch=epoch+1, **controller.diagnostics(model.bottleneck)))
@@ -310,7 +361,7 @@ def run(config, resume=None):
         memory_size = cfg.get("replay", {}).get("samples_per_task", 0)
         if memory_size:
             memory = SegmentationDataset(tasks[task_id], manifests[task_id]["splits"]["train"], limit=memory_size)
-            replay.extend(memory[i] for i in range(len(memory)))
+            replay.extend(make_replay_memory(model, memory, memory_size, device, cfg["batch_size"]))
         if rank == 0:
             diagnostics.append(dict(task=task_id, epoch=cfg["epochs"], boundary=True, **controller.diagnostics(model.bottleneck)))
             history_artifacts(out, history, diagnostics)

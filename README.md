@@ -66,6 +66,8 @@ NPROC_PER_NODE=8 bash scripts/launch_dgx.sh configs/dgx.yaml
 
 DDP shards training batches, synchronizes gradients, uses rank-zero validation/test evaluation and shared-directory checkpoints. Training samplers can pad a few examples when sample counts are not divisible by GPU count; validation/test never use padded distributed samplers. All ranks need the same dataset and output paths. Multi-GPU throughput and memory must be profiled on DGX; local tests cannot certify eight-GPU performance. `lightning.gpu` is not silently substituted for the differentiable state QNode.
 
+Run `configs/dgx_sota_single_task.yaml` first. It uses the trainable FiLM spatial decoder on frozen SAM features; the quantum circuit supplies global conditioning. It is the accuracy configuration. `sam_prompt` remains the original frozen-SAM mask-decoder experiment and should be treated as an ablation. Only start `configs/dgx_sota_continual.yaml` after the single-task validation result is strong enough for the chosen target. The continual run rehearses compact labelled tiles and distils each stored tile's selected-model logits, explicitly protecting the shared decoder against functional forgetting.
+
 ## Add a dataset with one YAML
 
 Copy `configs/datasets/example.yaml`, configure root/globs, optional stem suffixes, foreground labels or multiclass `label_map`, ignore labels and optional color mapping/group regex. Add its path to the run YAML's `tasks` list. Every task must share the same output ontology (`class_names`/`num_classes`). Non-raster annotations need an adapter before using this pipeline.
@@ -89,7 +91,7 @@ task-name | epoch [1/24] : train acc ... / val acc ... | train loss ... / val lo
 - `after_N_task_M_predictions.png/.npz`: visual comparisons and raw logits/masks.
 - `tsne.png`, `tsne_features.npz`, `tsne_coordinates.npz`: held-out representation visualization.
 
-Binary IoU/Dice/BIoU are foreground metrics; mIoU includes background. Absent-class metrics are undefined/null, not silently perfect. Loss is BCE+Dice for binary, CE+Dice for multiclass. Logged train/val loss is segmentation loss; separate columns record separation, stability and replay losses. Forgetting follows the provided diagonal-minus-final formula and retains negative backward transfer.
+Binary IoU/Dice/BIoU are foreground metrics; mIoU includes background. Absent-class metrics are undefined/null, not silently perfect. Loss is BCE+Dice for binary, CE+Dice for multiclass. Logged train/val loss is segmentation loss; separate columns record separation, stability, replay and replay-distillation losses. Forgetting follows the provided diagonal-minus-final formula and retains negative backward transfer.
 
 ## Research controls
 

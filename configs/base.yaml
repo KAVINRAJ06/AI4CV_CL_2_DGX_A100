@@ -12,6 +12,7 @@ epochs: 24
 batch_size: 2
 workers: 0
 lr: 0.0001
+bottleneck_lr: 0.0001
 weight_decay: 0.0
 grad_clip: 1.0
 lambda_sep: 0.1
@@ -49,3 +50,9 @@ model:
   # This is the trainable decoder projection head: frozen encoder features
   # retain spatial layout while the quantum readout provides global context.
   decoder_spatial_adapter: true
+  # Accuracy path: train a semantic segmentation head on spatial SAM features.
+  # sam_prompt is retained only as the frozen-decoder TQSI ablation.
+  decoder_mode: spatial_fpn
+  decoder_width: 192
+  decoder_dropout: 0.1
+  decoder_image_refiner: true

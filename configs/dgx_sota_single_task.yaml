@@ -1,0 +1,15 @@
+# Mandatory accuracy baseline: establish single-task quality before continual learning.
+extends: dgx.yaml
+output_dir: outputs/dgx_sota_single_task
+epochs: 24
+batch_size: 8
+workers: 8
+lr: 0.001
+bottleneck_lr: 0.0001
+tasks:
+  - configs/datasets/landcover_buildings.yaml
+replay: {samples_per_task: 0, batch_size: 0, weight: 1.0}
+model:
+  decoder_mode: spatial_fpn
+  decoder_width: 256
+  decoder_image_refiner: true
