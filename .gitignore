@@ -1,6 +1,7 @@
 .venv/
 .venv-cuda/
 .conda-cuda/
+tools/cuda_wheels/
 __pycache__/
 .pytest_cache/
 *.egg-info/
