@@ -8,7 +8,25 @@ from functools import lru_cache
 import numpy as np
 from PIL import Image
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, Sampler, WeightedRandomSampler
+
+
+class DistributedWeightedSampler(Sampler):
+    """Deterministic weighted replacement sampling with equal work on each DDP rank."""
+    def __init__(self, weights, replicas, rank, seed):
+        self.weights, self.replicas, self.rank, self.seed, self.epoch = weights, replicas, rank, seed, 0
+        self.samples_per_rank = (len(weights) + replicas - 1) // replicas
+
+    def set_epoch(self, epoch):
+        self.epoch = epoch
+
+    def __iter__(self):
+        generator = torch.Generator().manual_seed(self.seed + self.epoch)
+        selected = torch.multinomial(self.weights, self.samples_per_rank*self.replicas, replacement=True, generator=generator)
+        return iter(selected[self.rank::self.replicas].tolist())
+
+    def __len__(self):
+        return self.samples_per_rank
 
 
 @lru_cache(maxsize=8)
@@ -25,6 +43,13 @@ def mapped_tiff(path):
 
 
 def read_crop(path, box, size, rgb=False):
+    image = read_native_crop(path, box)
+    if rgb:
+        image = image.convert("RGB")
+    return np.array(image.resize((size, size), Image.Resampling.BILINEAR if rgb else Image.Resampling.NEAREST))
+
+
+def read_native_crop(path, box):
     data = mapped_tiff(str(path)) if path.suffix.lower() in (".tif", ".tiff") else None
     if data is not None:
         left, top, right, bottom = box
@@ -32,9 +57,7 @@ def read_crop(path, box, size, rgb=False):
     else:
         with Image.open(path) as source:
             image = source.crop(box)
-    if rgb:
-        image = image.convert("RGB")
-    return np.array(image.resize((size, size), Image.Resampling.BILINEAR if rgb else Image.Resampling.NEAREST))
+    return image
 
 
 def discover(cfg):
@@ -107,12 +130,14 @@ def prepare_manifest(cfg, directory, seed=42):
 
 
 class SegmentationDataset(Dataset):
-    def __init__(self, cfg, pairs, augment=False, limit=None):
+    def __init__(self, cfg, pairs, augment=False, limit=None, sampling=None):
         self.cfg, self.augment = cfg, augment
         self.root = Path(cfg["root"])
         self.size = int(cfg.get("image_size", 256))
         tile = int(cfg.get("tile_size", 512))
         self.samples = []
+        self.sampling = sampling or {}
+        self._foreground_counts = {}
         for pair in pairs:
             with Image.open(self.root / pair["image"]) as im:
                 width, height = im.size
@@ -126,16 +151,12 @@ class SegmentationDataset(Dataset):
             else:
                 self.samples.append((pair, (0, 0, width, height)))
         if limit and len(self.samples) > limit:
-            ids = np.random.default_rng(123).choice(len(self.samples), limit, replace=False)
-            self.samples = [self.samples[i] for i in sorted(ids)]
+            self._limit_samples(limit)
 
     def __len__(self):
         return len(self.samples)
 
-    def __getitem__(self, index):
-        pair, box = self.samples[index]
-        image = read_crop(self.root / pair["image"], box, self.size, rgb=True)
-        mask = read_crop(self.root / pair["mask"], box, self.size)
+    def _target_from_raw_mask(self, mask, pair):
         if mask.ndim == 3:
             colors = self.cfg.get("color_map")
             if not colors:
@@ -162,6 +183,88 @@ class SegmentationDataset(Dataset):
             if np.any((mask >= self.cfg["num_classes"]) | ((mask < 0) & (mask != -100))):
                 raise ValueError("label_map targets must lie in [0, num_classes)")
         mask[ignored] = -100
+        return mask
+
+    def _foreground_count(self, index):
+        """Count native-resolution foreground pixels once per tile for sampling."""
+        if index not in self._foreground_counts:
+            pair, box = self.samples[index]
+            target = self._target_from_raw_mask(np.array(read_native_crop(self.root / pair["mask"], box)), pair)
+            if self.cfg.get("num_classes", 1) == 1:
+                self._foreground_counts[index] = int((target == 1).sum())
+            else:
+                self._foreground_counts[index] = int((target > 0).sum())
+        return self._foreground_counts[index]
+
+    def _limit_samples(self, limit):
+        """Bounded local runs retain the requested mix of positive/background tiles."""
+        if not self.sampling.get("enabled", False):
+            ids = np.random.default_rng(123).choice(len(self.samples), limit, replace=False)
+        else:
+            minimum = int(self.sampling.get("min_foreground_pixels", 16))
+            # A bounded smoke run must not scan every high-resolution tile just
+            # to select a small subset. Full DGX runs (no `limit`) sample all.
+            pool_size = min(len(self.samples), int(self.sampling.get("candidate_pool_size", max(512, limit * 10))))
+            candidates = np.random.default_rng(123).choice(len(self.samples), pool_size, replace=False).tolist()
+            positive = [i for i in candidates if self._foreground_count(i) >= minimum]
+            positive_set = set(positive)
+            negative = [i for i in candidates if i not in positive_set]
+            target = int(round(limit * float(self.sampling.get("target_foreground_fraction", .5))))
+            target = min(target, len(positive))
+            rng = np.random.default_rng(123)
+            picked = rng.choice(positive, target, replace=False).tolist() if target else []
+            remaining = limit - len(picked)
+            pool = negative if len(negative) >= remaining else [i for i in candidates if i not in picked]
+            if len(pool) < remaining:
+                raise ValueError("Sampling candidate pool is smaller than the requested bounded dataset")
+            picked += rng.choice(pool, remaining, replace=False).tolist()
+            ids = np.array(sorted(picked))
+        old = self.samples
+        patch = int(self.sampling.get("foreground_crop_size", 0))
+        self.samples = [
+            self._foreground_crop(old[i], patch) if patch and self._foreground_count(i) >= minimum else old[i]
+            for i in ids
+        ]
+        self._foreground_counts = {}
+
+    def _foreground_crop(self, sample, crop_size):
+        """Replace a positive source tile with a deterministic foreground-centred patch."""
+        pair, box = sample
+        left, top, right, bottom = box
+        width, height = right-left, bottom-top
+        crop_w, crop_h = min(crop_size, width), min(crop_size, height)
+        target = self._target_from_raw_mask(np.array(read_native_crop(self.root / pair["mask"], box)), pair)
+        positive = np.argwhere(target == 1 if self.cfg.get("num_classes", 1) == 1 else target > 0)
+        if not len(positive):
+            return sample
+        y, x = np.median(positive, axis=0).astype(int)
+        new_left = int(np.clip(left + x - crop_w//2, left, right-crop_w))
+        new_top = int(np.clip(top + y - crop_h//2, top, bottom-crop_h))
+        return pair, (new_left, new_top, new_left+crop_w, new_top+crop_h)
+
+    def training_sampler(self, seed, replicas=1, rank=0):
+        if not self.sampling.get("enabled", False):
+            return None
+        minimum = int(self.sampling.get("min_foreground_pixels", 16))
+        target = float(self.sampling.get("target_foreground_fraction", .5))
+        if not 0 < target < 1:
+            raise ValueError("target_foreground_fraction must be strictly between 0 and 1")
+        positive = torch.tensor([self._foreground_count(i) >= minimum for i in range(len(self))])
+        n_pos, n_neg = int(positive.sum()), len(self)-int(positive.sum())
+        if not n_pos:
+            raise ValueError(f"No foreground tiles meet min_foreground_pixels={minimum}; verify labels or lower the threshold")
+        if not n_neg:
+            return None
+        weights = torch.where(positive, torch.tensor(target/n_pos), torch.tensor((1-target)/n_neg)).double()
+        if replicas == 1:
+            return WeightedRandomSampler(weights, num_samples=len(self), replacement=True,
+                                         generator=torch.Generator().manual_seed(seed))
+        return DistributedWeightedSampler(weights, replicas, rank, seed)
+
+    def __getitem__(self, index):
+        pair, box = self.samples[index]
+        image = read_crop(self.root / pair["image"], box, self.size, rgb=True)
+        mask = self._target_from_raw_mask(read_crop(self.root / pair["mask"], box, self.size), pair)
         if self.augment:
             if torch.rand(()) < .5:
                 image, mask = np.flip(image, 1), np.flip(mask, 1)

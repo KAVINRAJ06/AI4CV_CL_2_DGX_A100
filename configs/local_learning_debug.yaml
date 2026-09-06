@@ -1,0 +1,8 @@
+# One-task, short diagnostic. A passing run must have non-zero foreground
+# precision and recall before spending DGX time on the full sequence.
+extends: local_smoke.yaml
+output_dir: outputs/local_learning_debug_v2
+epochs: 4
+tasks:
+  - configs/datasets/landcover_buildings.yaml
+replay: {samples_per_task: 0, batch_size: 0, weight: 1.0}

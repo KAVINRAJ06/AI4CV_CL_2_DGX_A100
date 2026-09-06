@@ -33,6 +33,10 @@ From the repository root:
 
 `local_smoke` uses a small random frozen surrogate backbone, real dataset tiles and the real quantum bottleneck to test plumbing. `local_sam_smoke` uses the existing pretrained SAM ViT-B checkpoint and the full 8-qubit, 6-layer architecture, on a bounded real-data subset. It defaults to CPU for 4GB compatibility; change `device: cuda` to test the local GPU. Small source tiles are resized before SAM's 1024-input preprocessing; `image_size` does not reduce SAM's encoder grid. Full SAM inference can exceed 4GB depending on batch/replay size. Start with batch 1, replay batch 0 if memory is tight.
 
+The old one-epoch `local_smoke` output is intentionally not an accuracy result: it used randomly selected tiles and collapsed to background. Current smoke configs use foreground-balanced source tiles, foreground-centred crops, BCE/focal/Tversky weighting, and a trainable spatial decoder projection over frozen encoder features. Each epoch reports foreground precision, recall and predicted foreground percentage beside IoU/Dice. `local_learning_debug.yaml` is a data/metric check only because its random frozen tiny backbone has no semantic feature signal. Run `configs/local_sam_learning_debug.yaml` on CUDA before DGX; do not begin a DGX sequence if it reports empty or full foreground predictions.
+
+For binary datasets, the trainer calibrates a per-task logit threshold on validation Dice each epoch and saves that threshold with the validation-selected checkpoint. Test metrics and prediction artifacts use the saved threshold; test masks are never used for calibration.
+
 Default dataset root: `D:/AI4CV_CL_DGX_A100/A100_datasets`. Default checkpoint: `D:/AI4CV_CL_DGX_A100/models/sam_vit_b_01ec64.pth`. No dataset or checkpoint is committed. The explicit `scripts/download_sam_checkpoint.py` helper downloads SAM if needed.
 
 Each run requires a new `output_dir`, or an explicit task-boundary resume. If foreground Dice is undefined on an all-empty validation subset, selection falls back to validation loss and records that choice in the checkpoint:

@@ -17,6 +17,11 @@ for source, target in [
     ('outputs/sam_acceptance.json', 'sam_acceptance.json'),
 ]:
     shutil.copyfile(source, out / target)
+debug = Path('outputs/local_sam_learning_debug_v3')
+if debug.exists():
+    shutil.copyfile(debug / 'history.csv', out / 'sam_learning_debug_history.csv')
+    shutil.copyfile(debug / 'summary.json', out / 'sam_learning_debug_summary.json')
+    shutil.copyfile(debug / 'after_task_0_test.json', out / 'sam_learning_debug_test.json')
 original = load_checkpoint('outputs/local_smoke_verified/task_1_complete.pt')
 resumed = load_checkpoint('outputs/resume_verified/task_1_complete.pt')
 import torch

@@ -16,6 +16,20 @@ weight_decay: 0.0
 grad_clip: 1.0
 lambda_sep: 0.1
 lambda_stab: 0.1
+loss:
+  positive_weight: auto
+  max_positive_weight: 20
+  focal_gamma: 1.5
+  overlap_weight: 1.0
+  tversky_false_positive_weight: 0.3
+  tversky_false_negative_weight: 0.7
+train_sampling:
+  enabled: true
+  target_foreground_fraction: 0.5
+  min_foreground_pixels: 32
+  candidate_pool_size: 2048
+fail_on_foreground_collapse: false
+foreground_collapse_patience: 1
 reference_samples: 8
 tsne_samples_per_task: 128
 replay:
@@ -32,3 +46,6 @@ model:
   mask_strategy: qubit
   hidden_dim: 96
   num_classes: 1
+  # This is the trainable decoder projection head: frozen encoder features
+  # retain spatial layout while the quantum readout provides global context.
+  decoder_spatial_adapter: true

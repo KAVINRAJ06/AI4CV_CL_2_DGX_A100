@@ -8,14 +8,23 @@ def fidelity(a, b):
     return (a.conj() * b).sum(-1).abs().square().real
 
 
-def segmentation_loss(logits, target):
+def segmentation_loss(logits, target, config=None):
+    config = config or {}
     valid = target != -100
     if not valid.any():
         return logits.sum() * 0
     if logits.shape[1] == 1:
         truth = target.clamp_min(0).float().unsqueeze(1)
         prob = logits.sigmoid()
-        raw = F.binary_cross_entropy_with_logits(logits, truth, reduction="none")
+        pos = truth[:, 0][valid].sum()
+        neg = valid.sum() - pos
+        requested = config.get("positive_weight", "auto")
+        pos_weight = (neg / pos.clamp_min(1)).clamp(1, float(config.get("max_positive_weight", 20))) if requested == "auto" else torch.as_tensor(float(requested), device=logits.device)
+        raw = F.binary_cross_entropy_with_logits(logits, truth, reduction="none", pos_weight=pos_weight)
+        gamma = float(config.get("focal_gamma", 0))
+        if gamma:
+            pt = prob * truth + (1-prob) * (1-truth)
+            raw = raw * (1-pt).pow(gamma)
         data_loss = raw[:, 0][valid].mean()
     else:
         truth = F.one_hot(target.clamp_min(0), logits.shape[1]).permute(0, 3, 1, 2).float()
@@ -23,8 +32,13 @@ def segmentation_loss(logits, target):
         data_loss = F.cross_entropy(logits, target, ignore_index=-100)
     prob, truth = prob * valid[:, None], truth * valid[:, None]
     dims = (0, 2, 3)
-    dice = (2*(prob*truth).sum(dims)+1e-6)/(prob.sum(dims)+truth.sum(dims)+1e-6)
-    return data_loss + 1-dice.mean()
+    tp = (prob*truth).sum(dims)
+    fp = (prob*(1-truth)).sum(dims)
+    fn = ((1-prob)*truth).sum(dims)
+    alpha = float(config.get("tversky_false_positive_weight", .5))
+    beta = float(config.get("tversky_false_negative_weight", .5))
+    tversky = (tp+1e-6)/(tp+alpha*fp+beta*fn+1e-6)
+    return data_loss + float(config.get("overlap_weight", 1.0))*(1-tversky.mean())
 
 
 class TaskController:

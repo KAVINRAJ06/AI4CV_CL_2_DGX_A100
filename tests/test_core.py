@@ -90,6 +90,32 @@ def test_multiclass_and_ignore():
     assert metric.cm.sum() == 96
 
 
+def test_binary_diagnostics_expose_background_collapse():
+    metric = Metrics()
+    target = torch.tensor([[[0, 1], [1, 0]]])
+    metric.update(torch.full((1, 1, 2, 2), -20.), target)
+    result = metric.compute()
+    assert result["foreground_collapse"] is True
+    assert result["foreground_recall"] == 0
+    assert result["predicted_foreground_fraction"] == 0
+
+
+def test_validation_threshold_calibration_uses_foreground_ranking():
+    from torch import nn
+    from torch.utils.data import DataLoader, TensorDataset
+    from tqsi.train import calibrate_binary_threshold, evaluate
+    class LogitChannel(nn.Module):
+        classes = 1
+        def forward(self, x):
+            return x[:, :1]
+    x = torch.tensor([[[[-3., -2., 1., 2.]]]])
+    y = torch.tensor([[[0, 0, 1, 1]]])
+    batches = DataLoader(TensorDataset(x, y), batch_size=1)
+    threshold, dice = calibrate_binary_threshold(LogitChannel(), batches, "cpu")
+    assert threshold < 1 and dice == pytest.approx(1.)
+    assert evaluate(LogitChannel(), batches, "cpu", threshold=threshold)["dice"] == pytest.approx(1.)
+
+
 def test_source_group_splits():
     pairs = [dict(id=f"{i}_{j}", group=str(i)) for i in range(20) for j in range(3)]
     splits = split_pairs(pairs)
@@ -121,6 +147,25 @@ def test_folder_adapter(tmp_path):
         prepare_manifest(cfg, tmp_path / "splits")
 
 
+def test_foreground_balanced_sampler(tmp_path):
+    from PIL import Image
+    (tmp_path / "images").mkdir()
+    (tmp_path / "masks").mkdir()
+    for i in range(10):
+        Image.fromarray(np.zeros((16, 16, 3), dtype=np.uint8)).save(tmp_path / f"images/{i}.png")
+        mask = np.zeros((16, 16), dtype=np.uint8)
+        if i < 2:
+            mask[:4, :4] = 1
+        Image.fromarray(mask).save(tmp_path / f"masks/{i}.png")
+    cfg = dict(name="sampling", root=str(tmp_path), image_glob="images/*.png", mask_glob="masks/*.png", foreground_labels=[1], allowed_labels=[0, 1], image_size=16, tile_size=0)
+    pairs, _ = discover(cfg)
+    dataset = SegmentationDataset(cfg, pairs, sampling=dict(enabled=True, target_foreground_fraction=.5, min_foreground_pixels=4))
+    sampler = dataset.training_sampler(7)
+    selected = list(sampler)
+    assert sum(dataset._foreground_count(i) >= 4 for i in selected) >= 3
+    assert not hasattr(sampler, "set_epoch")  # single-process sampler remains valid in the trainer
+
+
 def test_tensor_model_frozen_backbone_gradient():
     model = TQSI(dict(backbone="tiny", bottleneck_type="quantum", n_qubits=3, n_layers=2), 2)
     images = torch.rand(2, 3, 16, 16)
@@ -130,6 +175,15 @@ def test_tensor_model_frozen_backbone_gradient():
     assert all(p.grad is None and not p.requires_grad for p in model.backbone.parameters())
     assert model.decoder_head.weight.grad.abs().sum() > 0
     assert model.projection[2].weight.grad.abs().sum() > 0
+
+
+def test_spatial_decoder_projection_preserves_frozen_backbone():
+    model = TQSI(dict(backbone="tiny", bottleneck_type="quantum", n_qubits=3, n_layers=2, decoder_spatial_adapter=True), 2)
+    logits = model(torch.rand(2, 3, 16, 16))
+    segmentation_loss(logits, torch.randint(2, (2, 16, 16))).backward()
+    assert logits.shape == (2, 1, 16, 16)
+    assert model.spatial_decoder_head[0].weight.grad.abs().sum() > 0
+    assert all(p.grad is None for p in model.backbone.parameters())
 
 
 def test_empty_foreground_checkpoint_selection():
@@ -146,6 +200,8 @@ def test_tiff_crop_matches_pillow(tmp_path):
     Image.fromarray(image).save(path)
     expected = np.array(Image.fromarray(image).crop((3, 5, 20, 25)).resize((16, 16), Image.Resampling.BILINEAR))
     assert np.array_equal(read_crop(path, (3, 5, 20, 25), 16, rgb=True), expected)
+    from tqsi.data import read_native_crop
+    assert np.array_equal(np.array(read_native_crop(path, (3, 5, 20, 25))), image[5:25, 3:20])
 
 
 def test_invalid_backbone_never_falls_back_to_tiny():

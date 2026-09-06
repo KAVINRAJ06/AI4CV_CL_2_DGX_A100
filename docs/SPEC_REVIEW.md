@@ -8,6 +8,8 @@ Frozen pretrained SAM image encoder -> global pooling + Linear + LayerNorm + uni
 
 Multiple semantic classes use one learned dense prompt per class and reuse the same frozen mask decoder, with CE + multiclass Dice. This is a stated extension; the original specification is binary (BCE + Dice). Default experiments map both local datasets to building/background.
 
+The initial global-only decoder projection could only broadcast a 3n-dimensional readout over every spatial location. That is insufficient to learn small aerial objects with a frozen decoder. The configured decoder projection head therefore has two trainable components: readout-to-global prompt and a 1×1 spatial projection of the frozen encoder feature map. Their sum is the dense SAM prompt. Disable `model.decoder_spatial_adapter` only for the global-only ablation; it is expected to collapse on the local tiny surrogate.
+
 ## Impossible separation acceptance criterion
 
 For fixed references a,b and the same unitary U, `<Ua, Ub> = <a, U*Ub> = <a,b>`. Therefore squared state fidelity is invariant and its gradient with respect to circuit weights is zero. Qubit/layer gradient masks do not change that identity. A common orthogonal matrix has the same property. The specified loss is preserved and logged, and an executable regression test checks invariance. We do not claim that changing entanglement, depth or lambda_sep can reduce this overlap. Multiple reference means remain invariant under the same linear unitary too.

@@ -1,0 +1,31 @@
+{
+  "landcover_buildings": {
+    "accuracy": 0.9340763092041016,
+    "iou": 0.15155755210251123,
+    "miou": 0.5424241475332074,
+    "dice": 0.26322184562256185,
+    "biou": 0.14784578241282326,
+    "per_class_iou": [
+      0.9332907429639037,
+      0.15155755210251123
+    ],
+    "confusion_matrix": [
+      [
+        483551.0,
+        27070.0
+      ],
+      [
+        7493.0,
+        6174.0
+      ]
+    ],
+    "foreground_pixels": 13667.0,
+    "predicted_foreground_pixels": 33244.0,
+    "predicted_foreground_fraction": 0.06340789794921875,
+    "foreground_precision": 0.18571772349897725,
+    "foreground_recall": 0.4517450793883076,
+    "foreground_collapse": false,
+    "loss": 1.531531184911728,
+    "decision_threshold": -1.5108234882354736
+  }
+}

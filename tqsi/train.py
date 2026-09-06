@@ -42,16 +42,37 @@ def loader(dataset, cfg, train=False, sampler=None, seed=42):
 
 
 @torch.no_grad()
-def evaluate(model, batches, device):
+def calibrate_binary_threshold(model, batches, device, quantiles=257):
+    """Select the binary Dice threshold on validation only; never use test labels."""
+    logits, targets = [], []
+    model.eval()
+    for images, target in batches:
+        logits.append(model(images.to(device))[:, 0].flatten().cpu())
+        targets.append(target.flatten().cpu())
+    logits, targets = torch.cat(logits), torch.cat(targets)
+    valid = targets != -100
+    logits, targets = logits[valid], targets[valid].bool()
+    if not targets.any():
+        return 0.0, float("nan")
+    candidates = torch.quantile(logits, torch.linspace(0, 1, quantiles))
+    candidates = torch.unique(torch.cat((candidates, torch.tensor([0.]))))
+    truth = targets.sum()
+    dice = torch.stack([2*((logits > threshold) & targets).sum().float()/((logits > threshold).sum()+truth).clamp_min(1) for threshold in candidates])
+    best = int(dice.argmax())
+    return float(candidates[best]), float(dice[best])
+
+
+@torch.no_grad()
+def evaluate(model, batches, device, loss_config=None, threshold=0.0):
     model.eval()
     metrics = Metrics(model.classes)
     total, count = 0., 0
     for images, targets in batches:
         images, targets = images.to(device), targets.to(device)
         logits = model(images)
-        total += float(segmentation_loss(logits, targets))*len(images)
+        total += float(segmentation_loss(logits, targets, loss_config))*len(images)
         count += len(images)
-        metrics.update(logits, targets)
+        metrics.update(logits, targets, threshold)
     if not count:
         raise ValueError("Empty evaluation split")
     result = metrics.compute()
@@ -143,7 +164,10 @@ def run(config, resume=None):
         dist.barrier()
     import json
     manifests = [json.loads((manifest_dir / f"{task['name']}.json").read_text()) for task in tasks]
-    datasets = [{s: SegmentationDataset(task, manifest["splits"][s], augment=s == "train", limit=cfg.get("max_samples", {}).get(s)) for s in ("train", "val", "test")} for task, manifest in zip(tasks, manifests)]
+    datasets = [{s: SegmentationDataset(
+        task, manifest["splits"][s], augment=s == "train", limit=cfg.get("max_samples", {}).get(s),
+        sampling=cfg.get("train_sampling") if s == "train" else cfg.get("bounded_evaluation_sampling"),
+    ) for s in ("train", "val", "test")} for task, manifest in zip(tasks, manifests)]
     if rank == 0:
         print("Split sizes (source images -> tiles used):", flush=True)
         for task, manifest, sets in zip(tasks, manifests, datasets):
@@ -152,7 +176,7 @@ def run(config, resume=None):
                 print("  Omitted unpaired files:", {k: len(v) for k, v in manifest["audit"].items()}, flush=True)
     model = TQSI(cfg["model"], len(tasks)).to(device)
     controller = TaskController()
-    history, diagnostics, matrix, replay, prototypes = [], [], [], [], {}
+    history, diagnostics, matrix, replay, prototypes, decision_thresholds = [], [], [], [], {}, {}
     start_task = 0
     if resume:
         checkpoint = load_checkpoint(resume, device)
@@ -167,6 +191,7 @@ def run(config, resume=None):
         history, diagnostics, matrix = checkpoint["history"], checkpoint["diagnostics"], checkpoint["matrix"]
         replay = [(x.cpu(), y.cpu()) for x, y in checkpoint["replay"]]
         prototypes = {t: p.cpu() for t, p in checkpoint["prototypes"].items()}
+        decision_thresholds = checkpoint.get("decision_thresholds", {})
         start_task = checkpoint["completed_task"]+1
     params = [p for p in model.parameters() if p.requires_grad]
     if rank == 0:
@@ -183,7 +208,9 @@ def run(config, resume=None):
     for task_id in range(start_task, len(tasks)):
         seed_all(cfg["seed"]+task_id)
         task_name = tasks[task_id]["name"]
-        sampler = DistributedSampler(datasets[task_id]["train"], shuffle=True, seed=cfg["seed"]) if distributed else None
+        sampler = datasets[task_id]["train"].training_sampler(cfg["seed"] + task_id, world, rank)
+        if sampler is None and distributed:
+            sampler = DistributedSampler(datasets[task_id]["train"], shuffle=True, seed=cfg["seed"])
         train_batches = loader(datasets[task_id]["train"], cfg, True, sampler, seed=cfg["seed"]+task_id)
         reference_dataset = SegmentationDataset(tasks[task_id], manifests[task_id]["splits"]["train"], limit=cfg.get("reference_samples", 8))
         reference_x = torch.stack([reference_dataset[i][0] for i in range(len(reference_dataset))]).to(device)
@@ -198,7 +225,7 @@ def run(config, resume=None):
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg["epochs"], eta_min=cfg["lr"]*.01)
         best = (-1, -float("inf"))
         for epoch in range(cfg["epochs"]):
-            if sampler:
+            if sampler is not None and hasattr(sampler, "set_epoch"):
                 sampler.set_epoch(epoch)
             model.train()
             metric = Metrics(classes)
@@ -214,8 +241,8 @@ def run(config, resume=None):
                     replay_target = torch.stack([replay[i][1] for i in indices]).to(device)
                     images = torch.cat((images, rx))
                 logits = wrapped(images)
-                seg = segmentation_loss(logits[:n], targets)
-                replay_loss = segmentation_loss(logits[n:], replay_target) if replay_target is not None else seg*0
+                seg = segmentation_loss(logits[:n], targets, cfg.get("loss"))
+                replay_loss = segmentation_loss(logits[n:], replay_target, cfg.get("loss")) if replay_target is not None else seg*0
                 sep, stab = controller.losses(model.bottleneck)
                 loss = seg + cfg.get("lambda_sep", .1)*sep + cfg.get("lambda_stab", .1)*stab + cfg.get("replay", {}).get("weight", 1.)*replay_loss
                 masked_step(loss, optimizer, model.bottleneck.masked_parameters(task_id), params, cfg.get("grad_clip", 1.))
@@ -235,18 +262,27 @@ def run(config, resume=None):
             if rank == 0:
                 train_metrics = metric.compute()
                 train_metrics["loss"] = total/count
-                val_metrics = evaluate(model, val_loaders[task_id], device)
+                threshold, threshold_dice = (0.0, float("nan")) if classes != 1 else calibrate_binary_threshold(model, val_loaders[task_id], device)
+                val_metrics = evaluate(model, val_loaders[task_id], device, cfg.get("loss"), threshold)
                 row = dict(task=task_name, epoch=epoch+1, lr=optimizer.param_groups[0]["lr"], seconds=time.perf_counter()-begin)
                 for split, values in (("train", train_metrics), ("val", val_metrics)):
-                    row.update({f"{split}_{k}": values[k] for k in ("accuracy", "loss", "iou", "dice", "miou", "biou")})
-                row.update(separation=sums[0]/count, stability_loss=sums[1]/count, replay_loss=sums[2]/count)
+                    keys = ("accuracy", "loss", "iou", "dice", "miou", "biou", "foreground_precision", "foreground_recall", "predicted_foreground_fraction", "foreground_collapse")
+                    row.update({f"{split}_{k}": values.get(k) for k in keys})
+                row.update(separation=sums[0]/count, stability_loss=sums[1]/count, replay_loss=sums[2]/count,
+                           decision_threshold=threshold, calibrated_val_dice=threshold_dice)
                 history.append(row)
                 diagnostics.append(dict(task=task_id, epoch=epoch+1, **controller.diagnostics(model.bottleneck)))
-                print(f"{task_name} | epoch [{epoch+1}/{cfg['epochs']}] : train acc {row['train_accuracy']:.4f} / val acc {row['val_accuracy']:.4f} | train loss {row['train_loss']:.4f} / val loss {row['val_loss']:.4f} | train IoU {row['train_iou']:.4f} / val IoU {row['val_iou']:.4f} | train Dice {row['train_dice']:.4f} / val Dice {row['val_dice']:.4f} | mIoU {row['val_miou']:.4f} | BIoU {row['val_biou']:.4f} | {row['seconds']:.2f}s", flush=True)
+                print(f"{task_name} | epoch [{epoch+1}/{cfg['epochs']}] : train acc {row['train_accuracy']:.4f} / val acc {row['val_accuracy']:.4f} | train loss {row['train_loss']:.4f} / val loss {row['val_loss']:.4f} | train IoU {row['train_iou']:.4f} / val IoU {row['val_iou']:.4f} | train Dice {row['train_dice']:.4f} / val Dice {row['val_dice']:.4f} | mIoU {row['val_miou']:.4f} | BIoU {row['val_biou']:.4f} | val fg P/R/pred {row['val_foreground_precision']:.3f}/{row['val_foreground_recall']:.3f}/{row['val_predicted_foreground_fraction']:.3%} | {row['seconds']:.2f}s", flush=True)
+                if row["val_foreground_collapse"]:
+                    message = f"Foreground-collapse detected on validation for {task_name}, epoch {epoch+1}: predicted foreground is empty."
+                    patience = int(cfg.get("foreground_collapse_patience", 1))
+                    if cfg.get("fail_on_foreground_collapse", False) and epoch + 1 >= patience:
+                        raise RuntimeError(message)
+                    warnings.warn(message)
                 score = selection_score(val_metrics)
                 if score > best:
                     best = score
-                    save_checkpoint(out / f"task_{task_id}_best.pt", dict(model=model.state_dict(), config=cfg, val=val_metrics, epoch=epoch+1,
+                    save_checkpoint(out / f"task_{task_id}_best.pt", dict(model=model.state_dict(), config=cfg, val=val_metrics, epoch=epoch+1, decision_threshold=threshold,
                         selection="val_dice" if score[0] else "val_loss_fallback_undefined_dice"))
                 history_artifacts(out, history, diagnostics)
             scheduler.step()
@@ -255,6 +291,7 @@ def run(config, resume=None):
         # Carry forward validation-selected weights, not test-selected weights.
         selected = load_checkpoint(out / f"task_{task_id}_best.pt", device)
         model.load_state_dict(selected["model"])
+        decision_thresholds[task_id] = selected.get("decision_threshold", 0.0)
         controller.freeze(task_id, model.bottleneck)
         memory_size = cfg.get("replay", {}).get("samples_per_task", 0)
         if memory_size:
@@ -266,16 +303,18 @@ def run(config, resume=None):
             row = [float("nan")]*len(tasks)
             evaluations = {}
             for old_task in range(task_id+1):
-                result = evaluate(model, test_loaders[old_task], device)
+                threshold = decision_thresholds.get(old_task, 0.0)
+                result = evaluate(model, test_loaders[old_task], device, cfg.get("loss"), threshold)
+                result["decision_threshold"] = threshold
                 row[old_task] = result["iou"]
                 evaluations[tasks[old_task]["name"]] = result
-                predictions(model, test_loaders[old_task], out / f"after_{task_id}_task_{old_task}_predictions.png", device)
+                predictions(model, test_loaders[old_task], out / f"after_{task_id}_task_{old_task}_predictions.png", device, threshold=threshold)
             matrix.append(row)
             write_json(out / f"after_task_{task_id}_test.json", evaluations)
             write_json(out / "test_iou_matrix.json", matrix)
             save_checkpoint(out / f"task_{task_id}_complete.pt", dict(model=model.state_dict(), config=cfg,
                 controller=controller.state_dict(), completed_task=task_id, history=history, diagnostics=diagnostics,
-                matrix=matrix, replay=replay, prototypes=prototypes, fingerprints=[m["fingerprint"] for m in manifests]))
+                matrix=matrix, replay=replay, prototypes=prototypes, decision_thresholds=decision_thresholds, fingerprints=[m["fingerprint"] for m in manifests]))
         if distributed:
             dist.barrier()
     result = None

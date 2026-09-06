@@ -37,7 +37,12 @@ class FrozenSAM(nn.Module):
         for embedding, prompt in zip(features, prompts):
             channels = prompt.shape[0]
             sparse = embedding.new_empty((channels, 0, self.channels))
-            dense = prompt[..., None, None].expand(-1, -1, *embedding.shape[-2:])
+            if prompt.ndim == 2:
+                dense = prompt[..., None, None].expand(-1, -1, *embedding.shape[-2:])
+            elif prompt.ndim == 4 and prompt.shape[1:] == embedding.shape:
+                dense = prompt
+            else:
+                raise ValueError(f"Dense prompt must be [classes, channels] or [classes, channels, height, width], got {tuple(prompt.shape)}")
             dense = dense + self.sam.prompt_encoder.no_mask_embed.weight.reshape(1, -1, 1, 1)
             logits, _ = self.sam.mask_decoder(
                 image_embeddings=embedding[None], image_pe=self.sam.prompt_encoder.get_dense_pe(),
@@ -63,7 +68,7 @@ class TinyBackbone(nn.Module):
         return self.encoder(image)
 
     def decode(self, features, prompts, output_size):
-        conditioned = features[:, None] + prompts[..., None, None]
+        conditioned = features[:, None] + (prompts[..., None, None] if prompts.ndim == 3 else prompts)
         b, k, c, h, w = conditioned.shape
         logits = self.decoder(conditioned.reshape(b*k, c, h, w))
         return F.interpolate(logits, output_size, mode="bilinear", align_corners=False).reshape(b, k, *output_size)
@@ -81,6 +86,13 @@ class TQSI(nn.Module):
         self.projection = nn.Sequential(nn.AdaptiveAvgPool2d(1), nn.Flatten(),
             nn.Linear(self.backbone.channels, self.bottleneck.feature_dim), nn.LayerNorm(self.bottleneck.feature_dim))
         self.decoder_head = nn.Linear(self.bottleneck.readout_dim, self.classes*self.backbone.channels)
+        self.spatial_decoder_head = None
+        if cfg.get("decoder_spatial_adapter", False):
+            self.spatial_decoder_head = nn.Sequential(
+                nn.Conv2d(self.backbone.channels, self.backbone.channels, 1),
+                nn.GELU(),
+                nn.Conv2d(self.backbone.channels, self.classes*self.backbone.channels, 1),
+            )
 
     def representation(self, images):
         return normalize(self.projection(self.backbone.encode(images)))
@@ -90,4 +102,7 @@ class TQSI(nn.Module):
         h = normalize(self.projection(z))
         r = self.bottleneck(h)
         prompts = self.decoder_head(r).reshape(len(images), self.classes, self.backbone.channels)
+        if self.spatial_decoder_head is not None:
+            spatial = self.spatial_decoder_head(z).reshape(len(images), self.classes, self.backbone.channels, *z.shape[-2:])
+            prompts = spatial + prompts[..., None, None]
         return self.backbone.decode(z, prompts, images.shape[-2:])

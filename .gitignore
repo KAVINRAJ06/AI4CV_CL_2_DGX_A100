@@ -9,3 +9,13 @@ checkpoints/
 *.pt
 !outputs/**/*.pt
 data_cache/
+# Interrupted balancing experiments are reproducible from their configs and
+# must not be confused with completed recorded outputs.
+outputs/local_smoke_balanced/
+outputs/local_smoke_balanced_v2/
+outputs/local_smoke_balanced_v3/
+outputs/local_learning_debug/
+outputs/local_learning_debug_v2/
+outputs/local_sam_learning_debug/
+outputs/local_sam_learning_debug_v2/
+outputs/local_sam_learning_debug_v3/

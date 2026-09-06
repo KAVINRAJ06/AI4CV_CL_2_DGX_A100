@@ -31,8 +31,10 @@ def main():
             task["root"] = str(Path(args.dataset_root) / task["relative_root"])
         manifest = prepare_manifest(task, path.parent / "splits", cfg.get("split_seed", 42))
         batches = loader(SegmentationDataset(task, manifest["splits"]["test"], limit=cfg.get("max_samples", {}).get("test")), cfg)
-        report[task["name"]] = evaluate(model, batches, args.device)
-        predictions(model, batches, path.parent / f"eval_{task['name']}.png", args.device)
+        threshold = state.get("decision_thresholds", {}).get(tasks.index(task), state.get("decision_threshold", 0.0))
+        report[task["name"]] = evaluate(model, batches, args.device, threshold=threshold)
+        report[task["name"]]["decision_threshold"] = threshold
+        predictions(model, batches, path.parent / f"eval_{task['name']}.png", args.device, threshold=threshold)
     write_json(path.parent / "reevaluation.json", report)
     print(json.dumps(report, indent=2))
 

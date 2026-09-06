@@ -1,13 +1,29 @@
 extends: base.yaml
-output_dir: outputs/local_smoke
+output_dir: outputs/local_smoke_balanced_v4
 device: cpu
-image_size: 64
-epochs: 1
-batch_size: 2
-reference_samples: 2
+image_size: 128
+epochs: 8
+batch_size: 4
+lr: 0.001
+reference_samples: 4
 tsne_samples_per_task: 8
-max_samples: {train: 16, val: 16, test: 16}
-replay: {samples_per_task: 2, batch_size: 1, weight: 1.0}
+max_samples: {train: 32, val: 32, test: 32}
+replay: {samples_per_task: 8, batch_size: 2, weight: 1.0}
+fail_on_foreground_collapse: true
+foreground_collapse_patience: 4
+train_sampling:
+  enabled: true
+  target_foreground_fraction: 0.5
+  min_foreground_pixels: 32
+  candidate_pool_size: 256
+  foreground_crop_size: 256
+loss:
+  positive_weight: auto
+  max_positive_weight: 20
+  focal_gamma: 1.0
+  overlap_weight: 1.0
+  tversky_false_positive_weight: 0.4
+  tversky_false_negative_weight: 0.6
 model:
   backbone: tiny
   n_qubits: 4

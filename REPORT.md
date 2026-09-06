@@ -47,3 +47,15 @@ The split is independent of training seed (`split_seed: 42`) to keep baseline in
 - Raster/label adapters support YAML-defined paired RGB segmentation datasets. Polygon annotations, volumes and multispectral imagery need preprocessing adapters.
 
 The implementation does not fabricate results to satisfy impossible phase gates in the documents. It preserves those mechanisms, tests their actual properties, and records the deviations and extensions explicitly.
+
+## Subsequent correction: foreground-collapse smoke outputs
+
+The published one-epoch smoke histories show foreground IoU/Dice/BIoU equal to zero because their confusion matrices contain no predicted foreground pixels. This is a real collapse caused by random tile selection, sparse building pixels, one epoch and a low learning rate; it is not a metric serialization issue. The current code samples foreground-containing training tiles, makes optional foreground-centred crops for bounded smoke runs, uses configurable focal/Tversky weighting and logs precision/recall/predicted-foreground fraction. It fails a smoke run after a configurable patience when validation predicts no foreground. A short balanced run also exposed the opposite all-foreground failure with overly aggressive weights, so the current defaults use moderated values. Neither corrected configuration has been claimed to meet the target until it completes a meaningful run.
+
+The old tiny surrogate additionally had no trainable spatial path: a global prompt could only shift a frozen random decoder field. The current decoder projection is spatial (1×1 projected frozen features plus the quantum-derived global prompt). This is a necessary extension of the specified decoder head for high-resolution segmentation, and it is disclosed as such in the configuration and specification review.
+
+The random frozen tiny surrogate still has no semantic encoder signal, so it is not an accuracy gate. It verifies data, loss, masking and artifact plumbing only. The real local gate is `local_sam_learning_debug.yaml`, which uses the pretrained SAM encoder on CUDA.
+
+Binary decision thresholds are now calibrated on validation Dice and stored with each selected task checkpoint. This avoids conflating a fixed zero-logit threshold with model ranking quality; test labels remain unused for threshold selection.
+
+The real-SAM CUDA diagnostic then completed four epochs over eight balanced LandCover training tiles. Its validation-selected epoch had validation IoU 0.0671, Dice 0.1257 and BIoU 0.0670. The corresponding held-out bounded smoke subset achieved IoU 0.1516, Dice 0.2632 and BIoU 0.1478, with foreground precision 0.1857 and recall 0.4517. This is the first nonzero end-to-end result, but it is deliberately small, threshold-calibrated on validation only, and nowhere close to the supplied target. The raw output remains local under `outputs/local_sam_learning_debug_v3/`; its compact metrics are committed in `validation/`.

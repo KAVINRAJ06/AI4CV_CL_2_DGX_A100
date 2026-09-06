@@ -64,12 +64,12 @@ def history_artifacts(directory, history, diagnostics):
 
 
 @torch.no_grad()
-def predictions(model, loader, path, device, count=4):
+def predictions(model, loader, path, device, count=4, threshold=0.0):
     plt = plotting()
     images, truth = next(iter(loader))
     images, truth = images[:count], truth[:count]
     logits = model(images.to(device)).cpu()
-    pred = (logits[:, 0] > 0).long() if logits.shape[1] == 1 else logits.argmax(1)
+    pred = (logits[:, 0] > threshold).long() if logits.shape[1] == 1 else logits.argmax(1)
     mask_cmap = plt.get_cmap("gray" if model.classes == 1 else "tab20").copy()
     mask_cmap.set_bad("#888888")
     fig, axes = plt.subplots(len(images), 3, figsize=(10, 3*len(images)), squeeze=False)
@@ -85,7 +85,7 @@ def predictions(model, loader, path, device, count=4):
     fig.tight_layout()
     fig.savefig(path, dpi=140)
     plt.close(fig)
-    np.savez_compressed(Path(path).with_suffix(".npz"), images=images.numpy(), targets=truth.numpy(), predictions=pred.numpy(), logits=logits.numpy())
+    np.savez_compressed(Path(path).with_suffix(".npz"), images=images.numpy(), targets=truth.numpy(), predictions=pred.numpy(), logits=logits.numpy(), threshold=threshold)
 
 
 @torch.no_grad()

@@ -1,0 +1,17 @@
+# Real SAM diagnostic. This is the required local gate before a DGX sequence:
+# it must produce nonzero validation foreground precision and recall.
+extends: local_sam_smoke.yaml
+output_dir: outputs/local_sam_learning_debug_v3
+device: cuda
+epochs: 4
+max_samples: {train: 8, val: 8, test: 8}
+tasks:
+  - configs/datasets/landcover_buildings.yaml
+replay: {samples_per_task: 0, batch_size: 0, weight: 1.0}
+bounded_evaluation_sampling:
+  enabled: true
+  target_foreground_fraction: 0.5
+  min_foreground_pixels: 32
+  candidate_pool_size: 128
+  # Evaluation keeps source-tile geometry; only its bounded subset is balanced.
+  foreground_crop_size: 0

@@ -21,8 +21,8 @@ class Metrics:
         self.ratio = boundary_ratio
 
     @torch.no_grad()
-    def update(self, logits, target):
-        pred = (logits[:, 0] > 0).long() if self.binary else logits.argmax(1)
+    def update(self, logits, target, threshold=0.0):
+        pred = (logits[:, 0] > threshold).long() if self.binary else logits.argmax(1)
         valid = target != -100
         encoded = target[valid]*self.classes + pred[valid]
         self.cm += torch.bincount(encoded, minlength=self.classes**2).reshape(self.classes, self.classes).cpu()
@@ -44,10 +44,22 @@ class Metrics:
         dice = torch.where(denom > 0, 2*tp/denom, torch.nan)
         biou = torch.where(self.bu > 0, self.bi/self.bu, torch.nan)
         select = slice(1, 2) if self.binary else slice(None)
-        return dict(accuracy=float(tp.sum()/self.cm.sum()) if self.cm.sum() else float('nan'),
+        result = dict(accuracy=float(tp.sum()/self.cm.sum()) if self.cm.sum() else float('nan'),
                     iou=float(iou[select].nanmean()), miou=float(iou.nanmean()),
                     dice=float(dice[select].nanmean()), biou=float(biou[select].nanmean()),
                     per_class_iou=iou.tolist(), confusion_matrix=self.cm.tolist())
+        if self.binary:
+            foreground_true = self.cm[1].sum()
+            foreground_predicted = self.cm[:, 1].sum()
+            result.update(
+                foreground_pixels=float(foreground_true),
+                predicted_foreground_pixels=float(foreground_predicted),
+                predicted_foreground_fraction=float(foreground_predicted / self.cm.sum()) if self.cm.sum() else float("nan"),
+                foreground_precision=float(self.cm[1, 1] / foreground_predicted) if foreground_predicted else 0.0,
+                foreground_recall=float(self.cm[1, 1] / foreground_true) if foreground_true else float("nan"),
+                foreground_collapse=bool(foreground_true > 0 and foreground_predicted == 0),
+            )
+        return result
 
 
 def forgetting(matrix):
