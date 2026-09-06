@@ -1,0 +1,34 @@
+seed: 42
+split_seed: 42
+device: auto
+cpu_threads: 4
+output_dir: outputs/full
+dataset_root: D:/AI4CV_CL_DGX_A100/A100_datasets
+tasks:
+  - configs/datasets/landcover_buildings.yaml
+  - configs/datasets/openearthmap_buildings.yaml
+image_size: 512
+epochs: 24
+batch_size: 2
+workers: 0
+lr: 0.0001
+weight_decay: 0.0
+grad_clip: 1.0
+lambda_sep: 0.1
+lambda_stab: 0.1
+reference_samples: 8
+tsne_samples_per_task: 128
+replay:
+  samples_per_task: 0
+  batch_size: 0
+  weight: 1.0
+model:
+  backbone: sam
+  sam_checkpoint: D:/AI4CV_CL_DGX_A100/models/sam_vit_b_01ec64.pth
+  sam_variant: vit_b
+  bottleneck_type: quantum
+  n_qubits: 8
+  n_layers: 6
+  mask_strategy: qubit
+  hidden_dim: 96
+  num_classes: 1

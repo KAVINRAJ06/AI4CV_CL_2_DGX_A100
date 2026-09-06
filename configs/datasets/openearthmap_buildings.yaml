@@ -1,0 +1,17 @@
+name: openearthmap_buildings
+root: D:/AI4CV_CL_DGX_A100/A100_datasets/openearthmap/OpenEarthMap_wo_xBD
+relative_root: openearthmap/OpenEarthMap_wo_xBD
+image_glob: '**/images/*.tif'
+mask_glob: '**/labels/*.tif'
+tile_size: 512
+num_classes: 1
+class_names: [background, building]
+foreground_labels: [8]
+allowed_labels: [1, 2, 3, 4, 5, 6, 7, 8]
+ignore_labels: [0]
+# Split by region to avoid sharing the same city between train/validation/test.
+group_regex: '^(.*)_\d+$'
+# xBD images are explicitly absent in the downloaded wo_xBD distribution.
+# The local download also has unlabeled images. Both omission lists are audited;
+# no image without a matching label is used.
+allow_unpaired: true

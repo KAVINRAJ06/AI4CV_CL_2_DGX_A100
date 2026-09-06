@@ -1,0 +1,14 @@
+extends: base.yaml
+output_dir: outputs/local_smoke
+device: cpu
+image_size: 64
+epochs: 1
+batch_size: 2
+reference_samples: 2
+tsne_samples_per_task: 8
+max_samples: {train: 16, val: 16, test: 16}
+replay: {samples_per_task: 2, batch_size: 1, weight: 1.0}
+model:
+  backbone: tiny
+  n_qubits: 4
+  n_layers: 2

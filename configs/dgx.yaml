@@ -1,0 +1,9 @@
+extends: base.yaml
+output_dir: outputs/dgx_quantum
+dataset_root: /data/A100_datasets
+device: auto
+batch_size: 4
+workers: 4
+replay: {samples_per_task: 32, batch_size: 2, weight: 1.0}
+model:
+  sam_checkpoint: checkpoints/sam_vit_b_01ec64.pth

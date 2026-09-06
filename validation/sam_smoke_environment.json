@@ -1,0 +1,9 @@
+{
+  "torch": "2.5.1+cu121",
+  "device": "cuda",
+  "world_size": 1,
+  "trainable_parameters": 72848,
+  "bottleneck_parameters": 144,
+  "backbone": "sam",
+  "bounded_smoke": true
+}

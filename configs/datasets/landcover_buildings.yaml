@@ -1,0 +1,11 @@
+name: landcover_buildings
+root: D:/AI4CV_CL_DGX_A100/A100_datasets/landcover_ai
+relative_root: landcover_ai
+image_glob: images/*.tif
+mask_glob: masks/*.tif
+tile_size: 512
+num_classes: 1
+class_names: [background, building]
+foreground_labels: [1]
+allowed_labels: [0, 1, 2, 3, 4]
+ignore_labels: []

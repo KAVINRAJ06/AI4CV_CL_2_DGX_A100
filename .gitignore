@@ -1,0 +1,11 @@
+.venv/
+.venv-cuda/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+outputs/
+checkpoints/
+.ipynb_checkpoints/
+*.pth
+*.pt
+data_cache/

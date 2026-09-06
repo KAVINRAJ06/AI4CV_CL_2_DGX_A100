@@ -1,0 +1,11 @@
+extends: local_smoke.yaml
+output_dir: outputs/local_sam_smoke
+image_size: 256
+batch_size: 1
+reference_samples: 1
+max_samples: {train: 2, val: 2, test: 2}
+replay: {samples_per_task: 1, batch_size: 1, weight: 1.0}
+model:
+  backbone: sam
+  n_qubits: 8
+  n_layers: 6

@@ -1,0 +1,22 @@
+# Copy this file for any paired RGB raster segmentation dataset.
+name: example
+root: /path/to/dataset
+relative_root: example
+image_glob: images/*.png
+mask_glob: masks/*.png
+image_suffix: ''
+mask_suffix: _mask
+tile_size: 512
+num_classes: 1
+class_names: [background, foreground]
+foreground_labels: [255]
+allowed_labels: [0, 255]
+ignore_labels: []
+# Optional patient/scene grouping. First regex capture is the group ID.
+# group_regex: '^(patient\d+)_'
+# RGB mask support:
+# color_map: {'0,0,0': 0, '255,255,255': 255}
+# Multiclass alternative: change model.num_classes and every task ontology too.
+# num_classes: 3
+# class_names: [background, building, water]
+# label_map: {0: 0, 10: 1, 20: 2}
