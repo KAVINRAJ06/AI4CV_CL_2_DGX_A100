@@ -7,7 +7,7 @@ import random
 import time
 import warnings
 from datetime import datetime
-from tqdm.auto import tqdm
+from tqdm import tqdm
 import numpy as np
 import torch
 import torch.distributed as dist
@@ -273,6 +273,7 @@ def run(config, resume=None):
         task_name = tasks[task_id]["name"]
         if rank == 0:
             print(f"=== Stage {task_id+1}/{len(tasks)}: {task_name} ===", flush=True)
+            print(f"Trainer: {Path(__file__).resolve()} | device={device} | decoder={model.decoder_mode}", flush=True)
             print(f"Training started at {datetime.now():%Y-%m-%d %H:%M:%S}", flush=True)
             print(f"Learning rate: {cfg['lr']}", flush=True)
             print(f"Trainable parameters: {sum(p.numel() for p in params)}", flush=True)
@@ -302,7 +303,20 @@ def run(config, resume=None):
             metric = Metrics(classes)
             total, count, sums = 0., 0, [0., 0, 0., 0.]
             begin = time.perf_counter()
-            for images, targets in tqdm(train_batches, desc=f"Train Epoch {epoch+1}", disable=rank != 0, dynamic_ncols=True):
+            if rank == 0:
+                print(f"Train Epoch {epoch+1}: starting {len(train_batches)} batches; waiting for first batch", flush=True)
+            phase_started = time.perf_counter()
+            def phase(message):
+                nonlocal phase_started
+                if device.type == "cuda":
+                    torch.cuda.synchronize(device)
+                now = time.perf_counter()
+                print(f"[First batch] {message} | previous phase {now-phase_started:.2f}s", flush=True)
+                phase_started = now
+            for batch_index, (images, targets) in enumerate(tqdm(train_batches, desc=f"Train Epoch {epoch+1}", disable=rank != 0, dynamic_ncols=True)):
+                trace = rank == 0 and epoch == 0 and batch_index == 0
+                if trace:
+                    phase("data loaded; preparing tensors")
                 images, targets = images.to(device), targets.to(device)
                 n = len(images)
                 replay_target = replay_teacher = None
@@ -310,20 +324,31 @@ def run(config, resume=None):
                     indices = torch.randint(len(replay), (cfg["replay"]["batch_size"],)).tolist()
                     rx, replay_target, replay_teacher = unpack_replay([replay[i] for i in indices], device)
                     images = torch.cat((images, rx))
+                if trace:
+                    phase(f"forward starting, images={tuple(images.shape)}")
                 logits = wrapped(images)
+                if trace:
+                    phase("forward complete; segmentation and auxiliary losses starting")
                 seg = segmentation_loss(logits[:n], targets, cfg.get("loss"))
                 replay_loss = segmentation_loss(logits[n:], replay_target, cfg.get("loss")) if replay_target is not None else seg*0
                 distill_loss = torch.nn.functional.mse_loss(logits[n:], replay_teacher) if replay_teacher is not None else seg*0
-                sep, stab = controller.losses(model.bottleneck)
+                sep, stab = controller.losses(model.bottleneck, compute_sep=cfg.get("lambda_sep", .1) != 0,
+                                              compute_stab=cfg.get("lambda_stab", .1) != 0)
                 loss = (seg + cfg.get("lambda_sep", .1)*sep + cfg.get("lambda_stab", .1)*stab
                         + cfg.get("replay", {}).get("weight", 1.)*replay_loss
                         + cfg.get("replay", {}).get("distill_weight", 0.)*distill_loss)
+                if trace:
+                    phase("losses complete; backward and optimizer starting")
                 masked_step(loss, optimizer, model.bottleneck.masked_parameters(task_id), params, cfg.get("grad_clip", 1.))
+                if trace:
+                    phase("backward and optimizer complete; metrics starting")
                 metric.update(logits[:n].detach(), targets)
                 total += float(seg.detach())*n
                 count += n
                 for i, v in enumerate((sep, stab, replay_loss, distill_loss)):
                     sums[i] += float(v.detach())*n
+                if trace:
+                    phase("metrics complete; first batch finished")
             if distributed:
                 for name in ("cm", "bi", "bu"):
                     values = getattr(metric, name).to(device)

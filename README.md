@@ -80,6 +80,29 @@ Both prepared dataset YAMLs extract buildings, preserving a consistent binary ta
 
 ## Outputs
 
+If a notebook shows no epoch progress after pulling new code, restart its kernel
+and rerun the configuration cells before importing `run`. Already imported Python
+functions do not update on `git pull`. Use a fresh `output_dir` for an interrupted
+first task; task-boundary resume cannot recover an incomplete epoch.
+
+Training uses text progress bars (no notebook widget required) and flushed phase
+messages for the first batch of each task. These report data preparation, forward,
+loss computation, backward/optimizer, and metrics separately, with CUDA
+synchronization for those first-batch timings. To isolate the quantum circuit on
+DGX, run in the same environment as the notebook:
+
+```bash
+python -m scripts.profile_quantum --device cpu --batch-size 4
+python -m scripts.profile_quantum --device cuda --batch-size 4
+```
+
+Match `--batch-size` to training plus replay examples. This profiles only the
+broadcast circuit and its input/weight gradients, not SAM or the spatial decoder.
+Zero `lambda_sep`/`lambda_stab` now skips the respective training state simulation;
+the first task needs neither auxiliary simulation. Epoch diagnostics still run
+without gradients. Stability against a frozen past state can have nonzero gradients
+and is not covered by the shared-unitary separation invariance.
+
 ```text
 === Stage 1/2: task-name ===
 Training started at YYYY-MM-DD HH:MM:SS

@@ -52,13 +52,19 @@ class TaskController:
         device = next(bottleneck.parameters()).device
         return {t: bottleneck.get_state(x.to(device)) for t, x in self.inputs.items()}
 
-    def losses(self, bottleneck):
-        states = self.live(bottleneck)
+    def losses(self, bottleneck, compute_sep=True, compute_stab=True):
         zero = next(bottleneck.parameters()).sum()*0
+        need_sep = compute_sep and len(self.inputs) > 1
+        need_stab = compute_stab and bool(self.frozen)
+        if not need_sep and not need_stab:
+            return zero, zero
+        device = next(bottleneck.parameters()).device
+        needed = self.inputs if need_sep else self.frozen
+        states = {t: bottleneck.get_state(self.inputs[t].to(device)) for t in needed}
         ids = list(states)
-        terms = [fidelity(states[a].mean(0), states[b].mean(0)) for i, a in enumerate(ids) for b in ids[i+1:]]
+        terms = [fidelity(states[a].mean(0), states[b].mean(0)) for i, a in enumerate(ids) for b in ids[i+1:]] if need_sep else []
         sep = torch.stack(terms).mean() if terms else zero
-        stab = [1-fidelity(ref.to(states[t].device), states[t]).mean() for t, ref in self.frozen.items()]
+        stab = [1-fidelity(ref.to(states[t].device), states[t]).mean() for t, ref in self.frozen.items()] if need_stab else []
         return sep, torch.stack(stab).mean() if stab else zero
 
     @torch.no_grad()
