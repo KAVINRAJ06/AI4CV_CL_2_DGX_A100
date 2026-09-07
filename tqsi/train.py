@@ -6,6 +6,8 @@ from pathlib import Path
 import random
 import time
 import warnings
+from datetime import datetime
+from tqdm.auto import tqdm
 import numpy as np
 import torch
 import torch.distributed as dist
@@ -42,11 +44,11 @@ def loader(dataset, cfg, train=False, sampler=None, seed=42):
 
 
 @torch.no_grad()
-def calibrate_binary_threshold(model, batches, device, quantiles=257):
+def calibrate_binary_threshold(model, batches, device, quantiles=257, progress_desc=None):
     """Select the binary Dice threshold on validation only; never use test labels."""
     logits, targets = [], []
     model.eval()
-    for images, target in batches:
+    for images, target in tqdm(batches, desc=progress_desc, disable=progress_desc is None, dynamic_ncols=True):
         logits.append(model(images.to(device))[:, 0].flatten().cpu())
         targets.append(target.flatten().cpu())
     logits, targets = torch.cat(logits), torch.cat(targets)
@@ -63,11 +65,11 @@ def calibrate_binary_threshold(model, batches, device, quantiles=257):
 
 
 @torch.no_grad()
-def evaluate(model, batches, device, loss_config=None, threshold=0.0):
+def evaluate(model, batches, device, loss_config=None, threshold=0.0, progress_desc=None):
     model.eval()
     metrics = Metrics(model.classes)
     total, count = 0., 0
-    for images, targets in batches:
+    for images, targets in tqdm(batches, desc=progress_desc, disable=progress_desc is None, dynamic_ncols=True):
         images, targets = images.to(device), targets.to(device)
         logits = model(images)
         total += float(segmentation_loss(logits, targets, loss_config))*len(images)
@@ -269,6 +271,11 @@ def run(config, resume=None):
     for task_id in range(start_task, len(tasks)):
         seed_all(cfg["seed"]+task_id)
         task_name = tasks[task_id]["name"]
+        if rank == 0:
+            print(f"=== Stage {task_id+1}/{len(tasks)}: {task_name} ===", flush=True)
+            print(f"Training started at {datetime.now():%Y-%m-%d %H:%M:%S}", flush=True)
+            print(f"Learning rate: {cfg['lr']}", flush=True)
+            print(f"Trainable parameters: {sum(p.numel() for p in params)}", flush=True)
         sampler = datasets[task_id]["train"].training_sampler(cfg["seed"] + task_id, world, rank)
         if sampler is None and distributed:
             sampler = DistributedSampler(datasets[task_id]["train"], shuffle=True, seed=cfg["seed"])
@@ -295,7 +302,7 @@ def run(config, resume=None):
             metric = Metrics(classes)
             total, count, sums = 0., 0, [0., 0, 0., 0.]
             begin = time.perf_counter()
-            for images, targets in train_batches:
+            for images, targets in tqdm(train_batches, desc=f"Train Epoch {epoch+1}", disable=rank != 0, dynamic_ncols=True):
                 images, targets = images.to(device), targets.to(device)
                 n = len(images)
                 replay_target = replay_teacher = None
@@ -328,8 +335,8 @@ def run(config, resume=None):
             if rank == 0:
                 train_metrics = metric.compute()
                 train_metrics["loss"] = total/count
-                threshold, threshold_dice = (0.0, float("nan")) if classes != 1 else calibrate_binary_threshold(model, val_loaders[task_id], device)
-                val_metrics = evaluate(model, val_loaders[task_id], device, cfg.get("loss"), threshold)
+                threshold, threshold_dice = (0.0, float("nan")) if classes != 1 else calibrate_binary_threshold(model, val_loaders[task_id], device, progress_desc=f"Calibrate Epoch {epoch+1}")
+                val_metrics = evaluate(model, val_loaders[task_id], device, cfg.get("loss"), threshold, progress_desc=f"Eval Epoch {epoch+1}")
                 row = dict(task=task_name, epoch=epoch+1, lr=optimizer.param_groups[0]["lr"], seconds=time.perf_counter()-begin,
                            validation_source="train_diagnostic" if diagnostic_split else "validation")
                 for split, values in (("train", train_metrics), ("val", val_metrics)):
@@ -339,7 +346,14 @@ def run(config, resume=None):
                            decision_threshold=threshold, calibrated_val_dice=threshold_dice)
                 history.append(row)
                 diagnostics.append(dict(task=task_id, epoch=epoch+1, **controller.diagnostics(model.bottleneck)))
-                print(f"{task_name} | epoch [{epoch+1}/{cfg['epochs']}] : train acc {row['train_accuracy']:.4f} / val acc {row['val_accuracy']:.4f} | train loss {row['train_loss']:.4f} / val loss {row['val_loss']:.4f} | train IoU {row['train_iou']:.4f} / val IoU {row['val_iou']:.4f} | train Dice {row['train_dice']:.4f} / val Dice {row['val_dice']:.4f} | mIoU {row['val_miou']:.4f} | BIoU {row['val_biou']:.4f} | val fg P/R/pred {row['val_foreground_precision']:.3f}/{row['val_foreground_recall']:.3f}/{row['val_predicted_foreground_fraction']:.3%} | {row['seconds']:.2f}s", flush=True)
+                print(f"Epoch [{epoch+1}/{cfg['epochs']}] | train acc={row['train_accuracy']:.4f} loss={row['train_loss']:.4f} | val acc={row['val_accuracy']:.4f} loss={row['val_loss']:.4f} | Dice={row['val_dice']:.4f} IoU={row['val_iou']:.4f} mIoU={row['val_miou']:.4f} BIoU={row['val_biou']:.4f}", flush=True)
+                details = " | ".join(
+                    " ".join(f"{split}_{key}={row[f'{split}_{key}']:.4f}" for key in ("loss", "accuracy", "iou", "dice", "biou"))
+                    for split in ("train", "val")
+                )
+                print(f"[Epoch {epoch+1}] lr={row['lr']:.6f} {details}", flush=True)
+                print(f"Validation source={row['validation_source']} | foreground P/R/pred={row['val_foreground_precision']:.3f}/{row['val_foreground_recall']:.3f}/{row['val_predicted_foreground_fraction']:.3%}", flush=True)
+                print(f"Run epoch time: {row['seconds']:.2f}s", flush=True)
                 if row["val_foreground_collapse"]:
                     message = f"Foreground-collapse detected on validation for {task_name}, epoch {epoch+1}: predicted foreground is empty."
                     patience = int(cfg.get("foreground_collapse_patience", 1))

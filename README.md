@@ -81,7 +81,17 @@ Both prepared dataset YAMLs extract buildings, preserving a consistent binary ta
 ## Outputs
 
 ```text
-task-name | epoch [1/24] : train acc ... / val acc ... | train loss ... / val loss ... | train IoU ... / val IoU ... | train Dice ... / val Dice ... | mIoU ... | BIoU ... | ...s
+=== Stage 1/2: task-name ===
+Training started at YYYY-MM-DD HH:MM:SS
+Learning rate: ...
+Trainable parameters: ...
+Train Epoch 1: 100%|...| N/N [...]
+Calibrate Epoch 1: 100%|...| N/N [...]
+Eval Epoch 1: 100%|...| N/N [...]
+Epoch [1/24] | train acc=... loss=... | val acc=... loss=... | Dice=... IoU=... mIoU=... BIoU=...
+[Epoch 1] lr=... train_loss=... train_accuracy=... train_iou=... train_dice=... train_biou=... | val_loss=... val_accuracy=... val_iou=... val_dice=... val_biou=...
+Validation source=validation | foreground P/R/pred=.../.../...%
+Run epoch time: ...s
 ```
 
 - `splits/*.json`: persisted source splits, fingerprints, unmatched-file audit.
