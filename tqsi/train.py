@@ -45,23 +45,45 @@ def loader(dataset, cfg, train=False, sampler=None, seed=42):
 
 @torch.no_grad()
 def calibrate_binary_threshold(model, batches, device, quantiles=257, progress_desc=None):
-    """Select the binary Dice threshold on validation only; never use test labels."""
-    logits, targets = [], []
+    """Maximize validation Dice on a fixed probability grid using streaming counts.
+
+    ``quantiles`` is retained for caller compatibility; it now controls grid size,
+    not empirical quantiles. Counts cover all valid pixels without retaining logits.
+    Returned thresholds remain in logit space, with strict ``logits > threshold``.
+    """
+    if quantiles < 3:
+        raise ValueError("Calibration grid must contain at least three thresholds")
+    probabilities = torch.linspace(0, 1, quantiles, dtype=torch.float32)
+    thresholds = torch.unique(torch.cat((torch.logit(probabilities).nan_to_num(), torch.tensor([0.]))))
+    positive = torch.zeros(len(thresholds)+1, dtype=torch.int64)
+    negative = torch.zeros_like(positive)
     model.eval()
+    count = 0
     for images, target in tqdm(batches, desc=progress_desc, disable=progress_desc is None, dynamic_ncols=True):
-        logits.append(model(images.to(device))[:, 0].flatten().cpu())
-        targets.append(target.flatten().cpu())
-    logits, targets = torch.cat(logits), torch.cat(targets)
-    valid = targets != -100
-    logits, targets = logits[valid], targets[valid].bool()
-    if not targets.any():
+        logits = model(images.to(device))[:, 0].detach().float().cpu().flatten()
+        target = target.cpu().flatten()
+        valid = target != -100
+        logits, target = logits[valid], target[valid]
+        if not torch.isfinite(logits).all():
+            raise ValueError("Nonfinite validation logits during threshold calibration")
+        if not ((target == 0) | (target == 1)).all():
+            raise ValueError("Binary calibration requires labels 0, 1, or -100")
+        # right=False places values equal to a threshold on its excluded side.
+        bins = torch.bucketize(logits, thresholds, right=False)
+        positive += torch.bincount(bins[target == 1], minlength=len(positive))
+        negative += torch.bincount(bins[target == 0], minlength=len(negative))
+        count += logits.numel()
+    if not count:
+        raise ValueError("Empty or fully ignored calibration split")
+    truth = positive.sum()
+    if not truth:
         return 0.0, float("nan")
-    candidates = torch.quantile(logits, torch.linspace(0, 1, quantiles))
-    candidates = torch.unique(torch.cat((candidates, torch.tensor([0.]))))
-    truth = targets.sum()
-    dice = torch.stack([2*((logits > threshold) & targets).sum().float()/((logits > threshold).sum()+truth).clamp_min(1) for threshold in candidates])
+    tp = truth - positive.cumsum(0)[:-1]
+    fp = negative.sum() - negative.cumsum(0)[:-1]
+    dice = 2 * tp.double() / (tp + fp + truth).clamp_min(1)
     best = int(dice.argmax())
-    return float(candidates[best]), float(dice[best])
+    return float(thresholds[best]), float(dice[best])
+
 
 
 @torch.no_grad()

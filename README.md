@@ -37,6 +37,15 @@ The old one-epoch `local_smoke` output is intentionally not an accuracy result: 
 
 For binary datasets, the trainer calibrates a per-task logit threshold on validation Dice each epoch and saves that threshold with the validation-selected checkpoint. Test metrics and prediction artifacts use the saved threshold; test masks are never used for calibration.
 
+Calibration streams integer foreground/background counts over a fixed 257-point
+probability grid (including probability 0.5), converted to logit thresholds.
+It uses all valid validation pixels with memory bounded by one batch plus the
+grid, avoiding full-split concatenation and `torch.quantile` size limits. The best
+threshold is exact among grid candidates; this replaces the earlier empirical
+quantile candidate selection, so selected thresholds can differ. The legacy
+`quantiles` function argument now controls grid size. Evaluation still measures
+the selected threshold on the full validation split.
+
 Run the capacity gate before DGX continual learning:
 
 ```powershell
