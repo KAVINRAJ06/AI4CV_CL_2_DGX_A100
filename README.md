@@ -207,3 +207,35 @@ CUDA is synchronized at block boundaries to measure completed GPU work.
 Printing and synchronization add overhead, so set `timing: false` at the top
 level of your training YAML when returning to full-speed training. Existing
 training commands and checkpoints work unchanged.
+
+
+### Faster input loading without changing model computation
+
+Add these top-level settings to your existing training YAML:
+
+```yaml
+crop_cache_dir: data_cache/resized_crops  # Put this on local SSD storage.
+prefetch_factor: 4                      # Queued batches per loader worker.
+timing: false                          # Remove per-block CUDA synchronization.
+```
+
+Keep your current batch size, model, precision, losses, and augmentation settings.
+If `workers` is currently zero, try `workers: 4` to prepare batches concurrently;
+DGX configurations already use 4 or 8 workers. Changing worker count changes the
+random augmentation sequence, but keeps the same augmentation distribution.
+Workers remain alive between epochs. Prefetching uses extra host RAM and applies
+only when workers are enabled; reduce it to 2 if memory pressure increases.
+
+The optional crop cache stores lossless NumPy arrays before label mapping and
+random augmentation. The first visit decodes/resizes normally; later visits reuse
+those exact arrays. File path, modification time, size, crop coordinates, output
+resolution, and RGB conversion are part of the cache key. Worker writes are
+atomic. Keep source files immutable during training. The cache persists across
+runs and has no automatic eviction, so allow sufficient SSD space (approximately
+image pixels times channels plus raw mask bytes per unique crop). Remove the
+cache directory when no training job is using it to reclaim space.
+
+Restart training to apply these settings; the existing resume mechanism resumes
+only at completed task boundaries. Compare warmed-up epoch times with timing off,
+and use timing temporarily to inspect remaining stalls. No target-machine speedup
+or accuracy measurement is implied by these settings.

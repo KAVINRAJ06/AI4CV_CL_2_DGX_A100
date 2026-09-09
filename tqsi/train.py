@@ -38,10 +38,11 @@ def seed_worker(_):
 
 def loader(dataset, cfg, train=False, sampler=None, seed=42):
     workers = int(cfg.get("workers", 0))
+    options = {"prefetch_factor": int(cfg.get("prefetch_factor", 2))} if workers > 0 else {}
     return DataLoader(dataset, batch_size=cfg["batch_size"], shuffle=train and sampler is None,
                       sampler=sampler, num_workers=workers, pin_memory=torch.cuda.is_available(),
                       worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(seed),
-                      persistent_workers=workers > 0)
+                      persistent_workers=workers > 0, **options)
 
 
 @torch.no_grad()
@@ -227,6 +228,8 @@ def run(config, resume=None):
         if "dataset_root" in cfg:
             task["root"] = str(Path(cfg["dataset_root"]) / task["relative_root"])
         task["image_size"] = cfg.get("image_size", task.get("image_size", 256))
+        if cfg.get("crop_cache_dir"):
+            task["crop_cache_dir"] = cfg["crop_cache_dir"]
     manifest_dir = out / "splits"
     if rank == 0:
         for task in tasks:

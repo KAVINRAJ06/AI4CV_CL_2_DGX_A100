@@ -9,6 +9,7 @@ import numpy as np
 from PIL import Image
 import torch
 from torch.utils.data import Dataset, Sampler, WeightedRandomSampler
+from .crop_cache import cached_crop
 
 
 class DistributedWeightedSampler(Sampler):
@@ -299,8 +300,9 @@ class SegmentationDataset(Dataset):
 
     def __getitem__(self, index):
         pair, box = self.samples[index]
-        image = read_crop(self.root / pair["image"], box, self.size, rgb=True)
-        mask = self._target_from_raw_mask(read_crop(self.root / pair["mask"], box, self.size), pair)
+        cache = self.cfg.get("crop_cache_dir")
+        image = cached_crop(read_crop, self.root / pair["image"], box, self.size, rgb=True, directory=cache)
+        mask = self._target_from_raw_mask(cached_crop(read_crop, self.root / pair["mask"], box, self.size, directory=cache), pair)
         if self.augment:
             if torch.rand(()) < .5:
                 image, mask = np.flip(image, 1), np.flip(mask, 1)
