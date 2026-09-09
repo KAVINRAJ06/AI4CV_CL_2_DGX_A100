@@ -239,3 +239,36 @@ Restart training to apply these settings; the existing resume mechanism resumes
 only at completed task boundaries. Compare warmed-up epoch times with timing off,
 and use timing temporarily to inspect remaining stalls. No target-machine speedup
 or accuracy measurement is implied by these settings.
+
+
+### Prepare all resized tiles before training
+
+To pay decoding and tile-resizing costs before the first epoch, set
+`crop_cache_dir: data_cache/resized_crops` in your training YAML, then run:
+
+```bash
+python -m scripts.prepare_tile_cache --config configs/dgx_ai4cv_continual.yaml
+python -u -m tqsi.train --config configs/dgx_ai4cv_continual.yaml
+```
+
+Use your actual YAML path. Preparation needs CPU and disk space, not a GPU.
+It stores image and raw mask tiles separately as lossless `.npy` files in the
+cache directory, and writes `preparation_summary.json`. Repeating the command
+reuses completed tiles, including after an interrupted preparation. Keep the
+original dataset root and source files: training still uses their metadata and
+source-group splits. Do not point `dataset_root` at the cache directory.
+
+Large source images are cropped using the dataset's `tile_size` (currently 512),
+then each tile is resized to `image_size`. This command uses exactly the same
+Pillow RGB conversion, bilinear image resizing, and nearest-neighbor mask
+resizing as training. It covers all standard tiles in all configured tasks;
+custom foreground-centred crops in bounded diagnostics fill the cache on demand.
+Random augmentation and label mapping remain in training. There is no whole-image
+shrink to 512 that discards the existing tiling arrangement.
+
+SAM still resizes each augmented 512 tile internally to its encoder input size
+(1024 for the configured SAM). That GPU operation and encoder compute are not
+removed by this cache. Saving 1024 tiles and changing `image_size` would change
+this model's decoder resolution and training inputs; this preprocessing keeps the
+current 512 pipeline unchanged. Measure the warmed cache on DGX before attributing
+the data-loading delay specifically to decoding versus resizing.
