@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 import torch
 from torch.utils.data import Dataset, Sampler, WeightedRandomSampler
-from .crop_cache import cached_crop
+from .prepared import load_sample, prepared_manifest
 
 
 class DistributedWeightedSampler(Sampler):
@@ -113,6 +113,8 @@ def split_pairs(pairs, seed=42):
 
 
 def prepare_manifest(cfg, directory, seed=42):
+    if cfg.get("prepared_sam"):
+        return prepared_manifest(cfg, directory, seed)
     pairs, audit = discover(cfg)
     root = Path(cfg["root"])
     signature = dict(pairs=pairs, seed=seed, schema=1, group_regex=cfg.get("group_regex"),
@@ -132,6 +134,12 @@ def prepare_manifest(cfg, directory, seed=42):
 
 def dataset_audit(cfg, manifest, directory, overlay_count=4):
     """Audit raw labels and tiled foreground coverage before optimization."""
+    if cfg.get("prepared_sam"):
+        report = manifest["preparation_audit"]
+        Path(directory).mkdir(parents=True, exist_ok=True)
+        (Path(directory) / f"{cfg['name']}_prepared_audit.json").write_text(json.dumps(report, indent=2))
+        print(f"Prepared dataset {cfg['name']}: using offline label/alignment audit", flush=True)
+        return report
     root, directory = Path(cfg["root"]), Path(directory)
     report = {"task": cfg["name"], "raw_label_histogram": {}, "splits": {}, "alignment_errors": []}
     overlays = directory / "audit_overlays"
@@ -175,6 +183,13 @@ class SegmentationDataset(Dataset):
         self.samples = []
         self.sampling = sampling or {}
         self._foreground_counts = {}
+        if cfg.get("prepared_sam"):
+            if self.sampling.get("foreground_crop_size"):
+                raise ValueError("Prepared datasets do not support runtime foreground recropping")
+            self.samples = [(pair, tuple(pair["source_box"])) for pair in pairs]
+            if limit and len(self.samples) > limit:
+                self._limit_samples(limit)
+            return
         for pair in pairs:
             with Image.open(self.root / pair["image"]) as im:
                 width, height = im.size
@@ -224,6 +239,8 @@ class SegmentationDataset(Dataset):
 
     def _foreground_count(self, index):
         """Count native-resolution foreground pixels once per tile for sampling."""
+        if self.cfg.get("prepared_sam"):
+            return self.samples[index][0]["foreground_count"]
         if index not in self._foreground_counts:
             pair, box = self.samples[index]
             target = self._target_from_raw_mask(np.array(read_native_crop(self.root / pair["mask"], box)), pair)
@@ -300,9 +317,10 @@ class SegmentationDataset(Dataset):
 
     def __getitem__(self, index):
         pair, box = self.samples[index]
-        cache = self.cfg.get("crop_cache_dir")
-        image = cached_crop(read_crop, self.root / pair["image"], box, self.size, rgb=True, directory=cache)
-        mask = self._target_from_raw_mask(cached_crop(read_crop, self.root / pair["mask"], box, self.size, directory=cache), pair)
+        if self.cfg.get("prepared_sam"):
+            return load_sample(self.root, pair, self.size, self.augment)
+        image = read_crop(self.root / pair["image"], box, self.size, rgb=True)
+        mask = self._target_from_raw_mask(read_crop(self.root / pair["mask"], box, self.size), pair)
         if self.augment:
             if torch.rand(()) < .5:
                 image, mask = np.flip(image, 1), np.flip(mask, 1)

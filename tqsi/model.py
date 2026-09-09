@@ -1,5 +1,6 @@
 from pathlib import Path
 from .timing import BlockTimer
+from .prepared import PreparedImages
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -27,7 +28,12 @@ class FrozenSAM(nn.Module):
 
     @torch.no_grad()
     def encode(self, image):
-        transformed = self.resize.apply_image_torch(image * 255.)
+        if isinstance(image, PreparedImages):
+            transformed = image.sam
+            if transformed.shape[-2:] != (self.sam.image_encoder.img_size,)*2:
+                raise ValueError("Prepared SAM image size does not match this encoder")
+        else:
+            transformed = self.resize.apply_image_torch(image * 255.)
         return self.sam.image_encoder(self.sam.preprocess(transformed))
 
     def decode(self, features, prompts, output_size):
@@ -178,6 +184,8 @@ class TQSI(nn.Module):
         timer = getattr(self, "timer", None) or BlockTimer()
         with timer.block('model: frozen image encoder'):
             z = self.backbone.encode(images)
+        if isinstance(images, PreparedImages):
+            images = images.image
         if self.feature_adapter is not None:
             with timer.block('model: spatial feature adapter'):
                 z = self.feature_adapter(z)

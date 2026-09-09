@@ -209,66 +209,57 @@ level of your training YAML when returning to full-speed training. Existing
 training commands and checkpoints work unchanged.
 
 
-### Faster input loading without changing model computation
+### Standalone dataset with input resizing performed offline
 
-Add these top-level settings to your existing training YAML:
-
-```yaml
-crop_cache_dir: data_cache/resized_crops  # Put this on local SSD storage.
-prefetch_factor: 4                      # Queued batches per loader worker.
-timing: false                          # Remove per-block CUDA synchronization.
-```
-
-Keep your current batch size, model, precision, losses, and augmentation settings.
-If `workers` is currently zero, try `workers: 4` to prepare batches concurrently;
-DGX configurations already use 4 or 8 workers. Changing worker count changes the
-random augmentation sequence, but keeps the same augmentation distribution.
-Workers remain alive between epochs. Prefetching uses extra host RAM and applies
-only when workers are enabled; reduce it to 2 if memory pressure increases.
-
-The optional crop cache stores lossless NumPy arrays before label mapping and
-random augmentation. The first visit decodes/resizes normally; later visits reuse
-those exact arrays. File path, modification time, size, crop coordinates, output
-resolution, and RGB conversion are part of the cache key. Worker writes are
-atomic. Keep source files immutable during training. The cache persists across
-runs and has no automatic eviction, so allow sufficient SSD space (approximately
-image pixels times channels plus raw mask bytes per unique crop). Remove the
-cache directory when no training job is using it to reclaim space.
-
-Restart training to apply these settings; the existing resume mechanism resumes
-only at completed task boundaries. Compare warmed-up epoch times with timing off,
-and use timing temporarily to inspect remaining stalls. No target-machine speedup
-or accuracy measurement is implied by these settings.
-
-
-### Prepare all resized tiles before training
-
-To pay decoding and tile-resizing costs before the first epoch, set
-`crop_cache_dir: data_cache/resized_crops` in your training YAML, then run:
+The old crop-cache method has been removed. This workflow creates a separate,
+self-contained prepared dataset. Original images, masks, and YAMLs are only read;
+the command refuses an existing output directory or a location inside a source
+dataset. Run from the repository root in the DGX training environment:
 
 ```bash
-python -m scripts.prepare_tile_cache --config configs/dgx_ai4cv_continual.yaml
-python -u -m tqsi.train --config configs/dgx_ai4cv_continual.yaml
+git pull --ff-only origin main
+python -m scripts.prepare_resized_dataset \
+  --config configs/dgx_ai4cv_continual.yaml \
+  --output /raid/workspace/AI4CV/A100_datasets_resized_v1
+python -u -m tqsi.train \
+  --config /raid/workspace/AI4CV/A100_datasets_resized_v1/training.yaml
 ```
 
-Use your actual YAML path. Preparation needs CPU and disk space, not a GPU.
-It stores image and raw mask tiles separately as lossless `.npy` files in the
-cache directory, and writes `preparation_summary.json`. Repeating the command
-reuses completed tiles, including after an interrupted preparation. Keep the
-original dataset root and source files: training still uses their metadata and
-source-group splits. Do not point `dataset_root` at the cache directory.
+Use the original training YAML for preparation, then the generated `training.yaml`
+for training. It is a resolved copy with the same model, batch size, losses,
+worker count, and sampling settings, but new dataset paths and a fresh training
+output directory. Per-block timing is disabled in that copy. For a notebook,
+restart the kernel and load the generated YAML instead of the original one.
 
-Large source images are cropped using the dataset's `tile_size` (currently 512),
-then each tile is resized to `image_size`. This command uses exactly the same
-Pillow RGB conversion, bilinear image resizing, and nearest-neighbor mask
-resizing as training. It covers all standard tiles in all configured tasks;
-custom foreground-centred crops in bounded diagnostics fill the cache on demand.
-Random augmentation and label mapping remain in training. There is no whole-image
-shrink to 512 that discards the existing tiling arrangement.
+Large source images retain the original source-group train/validation/test splits
+and tile boundaries. For each tile, preparation saves three separate NumPy files:
 
-SAM still resizes each augmented 512 tile internally to its encoder input size
-(1024 for the configured SAM). That GPU operation and encoder compute are not
-removed by this cache. Saving 1024 tiles and changing `image_size` would change
-this model's decoder resolution and training inputs; this preprocessing keeps the
-current 512 pipeline unchanged. Measure the warmed cache on DGX before attributing
-the data-loading delay specifically to decoding versus resizing.
+- `*_image.npy`: RGB uint8 at the existing decoder resolution (usually 512).
+- `*_sam1024.npy`: float32 RGB already resized to 1024x1024 for SAM.
+- `*_mask.npy`: mapped integer target at the original decoder resolution.
+
+The SAM input uses bilinear, antialiased interpolation in float32, matching the
+intended online SAM input transform, without JPEG or float16 quantization. Both
+image versions and the target receive the same random flips and 90-degree
+rotations during training. The original decoder resolution is retained so its
+memory use and loss resolution do not increase. Normalization and encoder compute
+still run; source-image decoding, cropping, label mapping, and input resizing do
+not. Decoder feature upsampling remains part of the model.
+
+Training uses only the prepared files and manifests, without referring to original
+source files. Native foreground counts and source groups are saved to preserve
+sampling and split membership. Preparation also writes an offline label/alignment
+audit. Bounded foreground recropping is rejected rather than silently changed.
+This format requires the standard 1024px SAM encoder.
+
+Allow approximately 14.75 MiB per 512px tile plus metadata, audits, and training
+outputs. Keep the prepared dataset on fast local storage. Each task/split prints
+its estimated payload size before writing. Larger files can increase disk traffic;
+removing resizing does not guarantee an overall speedup. CPU offline interpolation
+and GPU interpolation can differ slightly numerically; measure validation quality
+and warmed-up throughput on DGX. Local tests do not establish DGX performance.
+
+The dataset is complete only after `training.yaml` is emitted. If preparation
+fails, use a new output directory for the next attempt. Existing source datasets
+and old cache directories are never deleted by this command. Remove obsolete
+`crop_cache_dir` settings from hand-maintained YAMLs; the generated YAML omits them.

@@ -18,6 +18,7 @@ from .config import load_config
 from .data import prepare_manifest, SegmentationDataset, dataset_audit
 from .model import TQSI
 from .timing import BlockTimer
+from .prepared import PreparedImages, stack_images, cat_images, collate_images
 from .continual import TaskController, segmentation_loss, masked_step
 from .metrics import Metrics, forgetting
 
@@ -42,7 +43,7 @@ def loader(dataset, cfg, train=False, sampler=None, seed=42):
     return DataLoader(dataset, batch_size=cfg["batch_size"], shuffle=train and sampler is None,
                       sampler=sampler, num_workers=workers, pin_memory=torch.cuda.is_available(),
                       worker_init_fn=seed_worker, generator=torch.Generator().manual_seed(seed),
-                      persistent_workers=workers > 0, **options)
+                      persistent_workers=workers > 0, collate_fn=collate_images, **options)
 
 
 @torch.no_grad()
@@ -136,7 +137,8 @@ def unpack_replay(entries, device):
     has_teacher = True
     for entry in entries:
         if isinstance(entry, dict):
-            images.append(entry["image"].float().div(255.))
+            image = entry["image"].float().div(255.)
+            images.append(PreparedImages(image, entry["sam_image"].float()) if "sam_image" in entry else image)
             targets.append(entry["target"].long())
             if "teacher_logits" in entry:
                 teachers.append(entry["teacher_logits"].float())
@@ -146,7 +148,7 @@ def unpack_replay(entries, device):
             images.append(entry[0].float())
             targets.append(entry[1].long())
             has_teacher = False
-    return (torch.stack(images).to(device), torch.stack(targets).to(device),
+    return (stack_images(images).to(device), torch.stack(targets).to(device),
             torch.stack(teachers).to(device) if has_teacher else None)
 
 
@@ -164,11 +166,15 @@ def make_replay_memory(model, dataset, size, device, batch_size):
         batch_images.append(image)
         batch_targets.append(target)
         if len(batch_images) == batch_size or index + 1 == min(size, len(dataset)):
-            images = torch.stack(batch_images).to(device)
+            images = stack_images(batch_images).to(device)
             logits = model(images).cpu().to(torch.float16)
             for image_i, target_i, logits_i in zip(batch_images, batch_targets, logits):
+                sam_image = image_i.sam.cpu() if isinstance(image_i, PreparedImages) else None
+                image_i = image_i.image if isinstance(image_i, PreparedImages) else image_i
                 memory.append(dict(image=(image_i.clamp(0, 1)*255).round().to(torch.uint8).cpu(),
                                    target=target_i.to(torch.int16).cpu(), teacher_logits=logits_i))
+                if sam_image is not None:
+                    memory[-1]["sam_image"] = sam_image
             batch_images, batch_targets = [], []
     return memory
 
@@ -219,6 +225,9 @@ def run(config, resume=None):
     if not resume and (out / "resolved_config.json").exists():
         raise FileExistsError(f"Run already exists at {out}; use resume or choose a fresh output_dir")
     tasks = [load_config(path) for path in cfg["tasks"]]
+    if any(t.get("prepared_sam") for t in tasks):
+        if not all(t.get("prepared_sam") for t in tasks) or cfg["model"]["backbone"] != "sam":
+            raise ValueError("All tasks must use prepared SAM datasets together with the SAM backbone")
     if len({t["name"] for t in tasks}) != len(tasks):
         raise ValueError("Task names must be unique")
     classes = cfg["model"].get("num_classes", 1)
@@ -228,8 +237,6 @@ def run(config, resume=None):
         if "dataset_root" in cfg:
             task["root"] = str(Path(cfg["dataset_root"]) / task["relative_root"])
         task["image_size"] = cfg.get("image_size", task.get("image_size", 256))
-        if cfg.get("crop_cache_dir"):
-            task["crop_cache_dir"] = cfg["crop_cache_dir"]
     manifest_dir = out / "splits"
     if rank == 0:
         for task in tasks:
@@ -315,7 +322,7 @@ def run(config, resume=None):
         train_batches = loader(datasets[task_id]["train"], cfg, True, sampler, seed=cfg["seed"]+task_id)
         reference_dataset = SegmentationDataset(tasks[task_id], manifests[task_id]["splits"]["train"], limit=cfg.get("reference_samples", 8))
         with timer.block('task: load reference images'):
-            reference_x = torch.stack([reference_dataset[i][0] for i in range(len(reference_dataset))]).to(device)
+            reference_x = stack_images([reference_dataset[i][0] for i in range(len(reference_dataset))]).to(device)
         with torch.no_grad():
             # Chunk encoder work to the configured batch size, important on 4GB GPUs.
             with timer.block('task: encode reference images'):
@@ -348,7 +355,7 @@ def run(config, resume=None):
                     indices = torch.randint(len(replay), (cfg["replay"]["batch_size"],)).tolist()
                     with timer.block('train: prepare replay tensors'):
                         rx, replay_target, replay_teacher = unpack_replay([replay[i] for i in indices], device)
-                    images = torch.cat((images, rx))
+                    images = cat_images((images, rx))
                 with timer.block('train: full forward'):
                     logits = wrapped(images)
                 with timer.block('train: segmentation loss'):

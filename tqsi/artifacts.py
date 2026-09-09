@@ -4,6 +4,7 @@ import json
 import math
 import numpy as np
 import torch
+from .prepared import PreparedImages
 
 
 def write_json(path, data):
@@ -69,6 +70,7 @@ def predictions(model, loader, path, device, count=4, threshold=0.0):
     images, truth = next(iter(loader))
     images, truth = images[:count], truth[:count]
     logits = model(images.to(device)).cpu()
+    images = images.image if isinstance(images, PreparedImages) else images
     pred = (logits[:, 0] > threshold).long() if logits.shape[1] == 1 else logits.argmax(1)
     mask_cmap = plt.get_cmap("gray" if model.classes == 1 else "tab20").copy()
     mask_cmap.set_bad("#888888")
