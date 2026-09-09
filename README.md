@@ -191,3 +191,19 @@ python -m tqsi.evaluate --checkpoint outputs/dgx_quantum/task_1_complete.pt --de
 ```
 
 The ladder runs B1 MLP, B2 orthogonal and B3 quantum with three seeds and reports mean/std. Parameter counts are explicit and **not claimed matched**. Ablation generation writes executable configurations for depth, qubits, loss weights and task order with quantum/orthogonal controls; it does not launch expensive jobs automatically. A CA-SAM B0 reproduction and the reported SOTA reference are not fabricated or treated as measured baselines. The reference project's [dataset separation design](https://github.com/Arun2005-srm/skin-lesion-segmentation-refactored) informed the tensor contract; this repository implements the supplied TQSI architecture.
+
+
+### Runtime timing prints
+
+Training now prints `[Timing] START <block>` immediately before each measured
+block and `[Timing] END <block> | 0.123s` after it finishes. If execution stalls,
+the last unmatched START identifies the active block. Data loading is labelled
+with task, epoch, and batch number. Timings cover startup, encoder, projection,
+bottleneck, decoder, losses, backward, optimizer, metrics, evaluation, and output
+artifacts. Nested totals include their inner blocks; do not add them together.
+
+Timing is enabled by default in the notebook/CLI trainer, on rank 0 for DDP.
+CUDA is synchronized at block boundaries to measure completed GPU work.
+Printing and synchronization add overhead, so set `timing: false` at the top
+level of your training YAML when returning to full-speed training. Existing
+training commands and checkpoints work unchanged.

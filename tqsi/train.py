@@ -17,6 +17,7 @@ from .artifacts import write_json, history_artifacts, predictions, tsne
 from .config import load_config
 from .data import prepare_manifest, SegmentationDataset, dataset_audit
 from .model import TQSI
+from .timing import BlockTimer
 from .continual import TaskController, segmentation_loss, masked_step
 from .metrics import Metrics, forgetting
 
@@ -209,6 +210,7 @@ def run(config, resume=None):
         dist.init_process_group("nccl")
     device_name = cfg.get("device", "auto")
     device = torch.device(f"cuda:{local}" if distributed else ("cuda" if torch.cuda.is_available() else "cpu") if device_name == "auto" else device_name)
+    timer = BlockTimer(device, enabled=rank == 0 and cfg.get("timing", True))
     seed_all(cfg["seed"])
     torch.set_num_threads(cfg.get("cpu_threads", 4))
     out = Path(cfg["output_dir"])
@@ -228,23 +230,28 @@ def run(config, resume=None):
     manifest_dir = out / "splits"
     if rank == 0:
         for task in tasks:
-            manifest = prepare_manifest(task, manifest_dir, cfg.get("split_seed", 42))
-            dataset_audit(task, manifest, out, int(cfg.get("audit_overlay_count", 4)))
+            with timer.block('startup: prepare manifest'):
+                manifest = prepare_manifest(task, manifest_dir, cfg.get("split_seed", 42))
+            with timer.block('startup: dataset audit'):
+                dataset_audit(task, manifest, out, int(cfg.get("audit_overlay_count", 4)))
     if distributed:
         dist.barrier()
     import json
     manifests = [json.loads((manifest_dir / f"{task['name']}.json").read_text()) for task in tasks]
-    datasets = [{s: SegmentationDataset(
-        task, manifest["splits"][s], augment=s == "train", limit=cfg.get("max_samples", {}).get(s),
-        sampling=cfg.get("train_sampling") if s == "train" else cfg.get("bounded_evaluation_sampling"),
-    ) for s in ("train", "val", "test")} for task, manifest in zip(tasks, manifests)]
+    with timer.block('startup: build datasets'):
+        datasets = [{s: SegmentationDataset(
+            task, manifest["splits"][s], augment=s == "train", limit=cfg.get("max_samples", {}).get(s),
+            sampling=cfg.get("train_sampling") if s == "train" else cfg.get("bounded_evaluation_sampling"),
+        ) for s in ("train", "val", "test")} for task, manifest in zip(tasks, manifests)]
     if rank == 0:
         print("Split sizes (source images -> tiles used):", flush=True)
         for task, manifest, sets in zip(tasks, manifests, datasets):
             print(task["name"], {s: (len(manifest["splits"][s]), len(sets[s])) for s in sets}, flush=True)
             if any(manifest["audit"].values()):
                 print("  Omitted unpaired files:", {k: len(v) for k, v in manifest["audit"].items()}, flush=True)
-    model = TQSI(cfg["model"], len(tasks)).to(device)
+    with timer.block('startup: initialize model and transfer to device'):
+        model = TQSI(cfg["model"], len(tasks)).to(device)
+    model.timer = timer
     controller = TaskController()
     history, diagnostics, matrix, replay, prototypes, decision_thresholds = [], [], [], [], {}, {}
     start_task = 0
@@ -304,10 +311,12 @@ def run(config, resume=None):
             sampler = DistributedSampler(datasets[task_id]["train"], shuffle=True, seed=cfg["seed"])
         train_batches = loader(datasets[task_id]["train"], cfg, True, sampler, seed=cfg["seed"]+task_id)
         reference_dataset = SegmentationDataset(tasks[task_id], manifests[task_id]["splits"]["train"], limit=cfg.get("reference_samples", 8))
-        reference_x = torch.stack([reference_dataset[i][0] for i in range(len(reference_dataset))]).to(device)
+        with timer.block('task: load reference images'):
+            reference_x = torch.stack([reference_dataset[i][0] for i in range(len(reference_dataset))]).to(device)
         with torch.no_grad():
             # Chunk encoder work to the configured batch size, important on 4GB GPUs.
-            ref_z = torch.cat([model.backbone.encode(x) for x in reference_x.split(cfg["batch_size"])])
+            with timer.block('task: encode reference images'):
+                ref_z = torch.cat([model.backbone.encode(x) for x in reference_x.split(cfg["batch_size"])])
             controller.register(task_id, torch.nn.functional.normalize(model.projection(ref_z), dim=-1))
             prototypes[task_id] = ref_z.mean((0, 2, 3)).cpu()
         del reference_x, ref_z
@@ -327,50 +336,38 @@ def run(config, resume=None):
             begin = time.perf_counter()
             if rank == 0:
                 print(f"Train Epoch {epoch+1}: starting {len(train_batches)} batches; waiting for first batch", flush=True)
-            phase_started = time.perf_counter()
-            def phase(message):
-                nonlocal phase_started
-                if device.type == "cuda":
-                    torch.cuda.synchronize(device)
-                now = time.perf_counter()
-                print(f"[First batch] {message} | previous phase {now-phase_started:.2f}s", flush=True)
-                phase_started = now
-            for batch_index, (images, targets) in enumerate(tqdm(train_batches, desc=f"Train Epoch {epoch+1}", disable=rank != 0, dynamic_ncols=True)):
-                trace = rank == 0 and epoch == 0 and batch_index == 0
-                if trace:
-                    phase("data loaded; preparing tensors")
-                images, targets = images.to(device), targets.to(device)
+            for images, targets in tqdm(timer.batches(train_batches, f"{task_name} epoch {epoch+1}"), total=len(train_batches), desc=f"Train Epoch {epoch+1}", disable=rank != 0, dynamic_ncols=True):
+                with timer.block('train: transfer tensors to device'):
+                    images, targets = images.to(device), targets.to(device)
                 n = len(images)
                 replay_target = replay_teacher = None
                 if replay and cfg.get("replay", {}).get("batch_size", 0):
                     indices = torch.randint(len(replay), (cfg["replay"]["batch_size"],)).tolist()
-                    rx, replay_target, replay_teacher = unpack_replay([replay[i] for i in indices], device)
+                    with timer.block('train: prepare replay tensors'):
+                        rx, replay_target, replay_teacher = unpack_replay([replay[i] for i in indices], device)
                     images = torch.cat((images, rx))
-                if trace:
-                    phase(f"forward starting, images={tuple(images.shape)}")
-                logits = wrapped(images)
-                if trace:
-                    phase("forward complete; segmentation and auxiliary losses starting")
-                seg = segmentation_loss(logits[:n], targets, cfg.get("loss"))
-                replay_loss = segmentation_loss(logits[n:], replay_target, cfg.get("loss")) if replay_target is not None else seg*0
-                distill_loss = torch.nn.functional.mse_loss(logits[n:], replay_teacher) if replay_teacher is not None else seg*0
-                sep, stab = controller.losses(model.bottleneck, compute_sep=cfg.get("lambda_sep", .1) != 0,
-                                              compute_stab=cfg.get("lambda_stab", .1) != 0)
+                with timer.block('train: full forward'):
+                    logits = wrapped(images)
+                with timer.block('train: segmentation loss'):
+                    seg = segmentation_loss(logits[:n], targets, cfg.get("loss"))
+                with timer.block('train: replay loss'):
+                    replay_loss = segmentation_loss(logits[n:], replay_target, cfg.get("loss")) if replay_target is not None else seg*0
+                with timer.block('train: distillation loss'):
+                    distill_loss = torch.nn.functional.mse_loss(logits[n:], replay_teacher) if replay_teacher is not None else seg*0
+                with timer.block('train: separation and stability losses'):
+                    sep, stab = controller.losses(model.bottleneck, compute_sep=cfg.get("lambda_sep", .1) != 0,
+                                                  compute_stab=cfg.get("lambda_stab", .1) != 0)
                 loss = (seg + cfg.get("lambda_sep", .1)*sep + cfg.get("lambda_stab", .1)*stab
                         + cfg.get("replay", {}).get("weight", 1.)*replay_loss
                         + cfg.get("replay", {}).get("distill_weight", 0.)*distill_loss)
-                if trace:
-                    phase("losses complete; backward and optimizer starting")
-                masked_step(loss, optimizer, model.bottleneck.masked_parameters(task_id), params, cfg.get("grad_clip", 1.))
-                if trace:
-                    phase("backward and optimizer complete; metrics starting")
-                metric.update(logits[:n].detach(), targets)
+                with timer.block('train: backward and optimizer'):
+                    masked_step(loss, optimizer, model.bottleneck.masked_parameters(task_id), params, cfg.get("grad_clip", 1.), timer=timer)
+                with timer.block('train: metrics'):
+                    metric.update(logits[:n].detach(), targets)
                 total += float(seg.detach())*n
                 count += n
                 for i, v in enumerate((sep, stab, replay_loss, distill_loss)):
                     sums[i] += float(v.detach())*n
-                if trace:
-                    phase("metrics complete; first batch finished")
             if distributed:
                 for name in ("cm", "bi", "bu"):
                     values = getattr(metric, name).to(device)
@@ -382,8 +379,10 @@ def run(config, resume=None):
             if rank == 0:
                 train_metrics = metric.compute()
                 train_metrics["loss"] = total/count
-                threshold, threshold_dice = (0.0, float("nan")) if classes != 1 else calibrate_binary_threshold(model, val_loaders[task_id], device, progress_desc=f"Calibrate Epoch {epoch+1}")
-                val_metrics = evaluate(model, val_loaders[task_id], device, cfg.get("loss"), threshold, progress_desc=f"Eval Epoch {epoch+1}")
+                with timer.block('epoch: threshold calibration'):
+                    threshold, threshold_dice = (0.0, float("nan")) if classes != 1 else calibrate_binary_threshold(model, val_loaders[task_id], device, progress_desc=f"Calibrate Epoch {epoch+1}")
+                with timer.block('epoch: validation'):
+                    val_metrics = evaluate(model, val_loaders[task_id], device, cfg.get("loss"), threshold, progress_desc=f"Eval Epoch {epoch+1}")
                 row = dict(task=task_name, epoch=epoch+1, lr=optimizer.param_groups[0]["lr"], seconds=time.perf_counter()-begin,
                            validation_source="train_diagnostic" if diagnostic_split else "validation")
                 for split, values in (("train", train_metrics), ("val", val_metrics)):
@@ -392,7 +391,8 @@ def run(config, resume=None):
                 row.update(separation=sums[0]/count, stability_loss=sums[1]/count, replay_loss=sums[2]/count, distill_loss=sums[3]/count,
                            decision_threshold=threshold, calibrated_val_dice=threshold_dice)
                 history.append(row)
-                diagnostics.append(dict(task=task_id, epoch=epoch+1, **controller.diagnostics(model.bottleneck)))
+                with timer.block('controller diagnostics'):
+                    diagnostics.append(dict(task=task_id, epoch=epoch+1, **controller.diagnostics(model.bottleneck)))
                 print(f"Epoch [{epoch+1}/{cfg['epochs']}] | train acc={row['train_accuracy']:.4f} loss={row['train_loss']:.4f} | val acc={row['val_accuracy']:.4f} loss={row['val_loss']:.4f} | Dice={row['val_dice']:.4f} IoU={row['val_iou']:.4f} mIoU={row['val_miou']:.4f} BIoU={row['val_biou']:.4f}", flush=True)
                 details = " | ".join(
                     " ".join(f"{split}_{key}={row[f'{split}_{key}']:.4f}" for key in ("loss", "accuracy", "iou", "dice", "biou"))
@@ -410,10 +410,12 @@ def run(config, resume=None):
                 score = selection_score(val_metrics, cfg.get("selection_metric", "iou"))
                 if score > best:
                     best = score
-                    save_checkpoint(out / f"task_{task_id}_best.pt", dict(model=model.state_dict(), config=cfg, val=val_metrics, epoch=epoch+1, decision_threshold=threshold,
-                        validation_source=row["validation_source"],
-                        selection=f"val_{cfg.get('selection_metric', 'iou')}" if score[0] else "val_loss_fallback_undefined_metric"))
-                history_artifacts(out, history, diagnostics)
+                    with timer.block('save checkpoint'):
+                        save_checkpoint(out / f"task_{task_id}_best.pt", dict(model=model.state_dict(), config=cfg, val=val_metrics, epoch=epoch+1, decision_threshold=threshold,
+                            validation_source=row["validation_source"],
+                            selection=f"val_{cfg.get('selection_metric', 'iou')}" if score[0] else "val_loss_fallback_undefined_metric"))
+                with timer.block('write history artifacts'):
+                    history_artifacts(out, history, diagnostics)
             scheduler.step()
             if distributed:
                 dist.barrier()
@@ -427,19 +429,24 @@ def run(config, resume=None):
             observed = float(selected["val"]["dice"])
             if observed < required:
                 raise RuntimeError(f"Capacity gate failed: train-diagnostic Dice {observed:.4f} < {required:.4f}. Fix data/model before benchmark training.")
-        controller.freeze(task_id, model.bottleneck)
+        with timer.block('task: freeze controller'):
+            controller.freeze(task_id, model.bottleneck)
         memory_size = cfg.get("replay", {}).get("samples_per_task", 0)
         if memory_size:
             memory = SegmentationDataset(tasks[task_id], manifests[task_id]["splits"]["train"], limit=memory_size)
-            replay.extend(make_replay_memory(model, memory, memory_size, device, cfg["batch_size"]))
+            with timer.block('task: build replay memory'):
+                replay.extend(make_replay_memory(model, memory, memory_size, device, cfg["batch_size"]))
         if rank == 0:
-            diagnostics.append(dict(task=task_id, epoch=cfg["epochs"], boundary=True, **controller.diagnostics(model.bottleneck)))
-            history_artifacts(out, history, diagnostics)
+            with timer.block('controller diagnostics'):
+                diagnostics.append(dict(task=task_id, epoch=cfg["epochs"], boundary=True, **controller.diagnostics(model.bottleneck)))
+            with timer.block('write history artifacts'):
+                history_artifacts(out, history, diagnostics)
             row = [float("nan")]*len(tasks)
             evaluations = {}
             for old_task in range(task_id+1):
                 threshold = decision_thresholds.get(old_task, 0.0)
-                result = evaluate(model, test_loaders[old_task], device, cfg.get("loss"), threshold)
+                with timer.block('task: test evaluation'):
+                    result = evaluate(model, test_loaders[old_task], device, cfg.get("loss"), threshold)
                 result["decision_threshold"] = threshold
                 if old_task < task_id and cfg.get("max_old_task_iou_drop") is not None:
                     prior = [previous[old_task] for previous in matrix if old_task < len(previous) and np.isfinite(previous[old_task])]
@@ -447,25 +454,29 @@ def run(config, resume=None):
                         raise RuntimeError(f"Continual quality gate failed for {tasks[old_task]['name']}: IoU dropped {max(prior)-result['iou']:.4f}, limit is {cfg['max_old_task_iou_drop']:.4f}")
                 row[old_task] = result["iou"]
                 evaluations[tasks[old_task]["name"]] = result
-                predictions(model, test_loaders[old_task], out / f"after_{task_id}_task_{old_task}_predictions.png", device, threshold=threshold)
+                with timer.block('task: prediction images'):
+                    predictions(model, test_loaders[old_task], out / f"after_{task_id}_task_{old_task}_predictions.png", device, threshold=threshold)
             matrix.append(row)
             write_json(out / f"after_task_{task_id}_test.json", evaluations)
             write_json(out / "test_iou_matrix.json", matrix)
-            save_checkpoint(out / f"task_{task_id}_complete.pt", dict(model=model.state_dict(), config=cfg,
-                controller=controller.state_dict(), completed_task=task_id, history=history, diagnostics=diagnostics,
-                matrix=matrix, replay=replay, prototypes=prototypes, decision_thresholds=decision_thresholds, fingerprints=[m["fingerprint"] for m in manifests]))
+            with timer.block('save checkpoint'):
+                save_checkpoint(out / f"task_{task_id}_complete.pt", dict(model=model.state_dict(), config=cfg,
+                    controller=controller.state_dict(), completed_task=task_id, history=history, diagnostics=diagnostics,
+                    matrix=matrix, replay=replay, prototypes=prototypes, decision_thresholds=decision_thresholds, fingerprints=[m["fingerprint"] for m in manifests]))
         if distributed:
             dist.barrier()
     result = None
     if rank == 0:
         model.eval()
         result = forgetting(matrix)
-        result["router"] = router_report(model, prototypes, test_loaders, device)
+        with timer.block('final: router evaluation'):
+            result["router"] = router_report(model, prototypes, test_loaders, device)
         result["benchmark_target"] = dict(val_accuracy=.9040, val_dice=.7448, reported_iou=.6277, val_biou=.2740,
             comparable=False, reason="Original benchmark split, task, resolution and aggregation are unspecified")
         result["smoke_only"] = bool(cfg.get("max_samples")) or cfg["model"]["backbone"] != "sam"
         write_json(out / "summary.json", result)
-        tsne(model, test_loaders, out, device, cfg["seed"], cfg.get("tsne_samples_per_task", 128))
+        with timer.block('final: t-SNE'):
+            tsne(model, test_loaders, out, device, cfg["seed"], cfg.get("tsne_samples_per_task", 128))
         print(f"Last-IoU={result['last_iou']:.4f} Avg-IoU={result['avg_iou']:.4f} FF-IoU={result['ff_iou']:.4f}", flush=True)
     if distributed:
         dist.barrier()

@@ -1,3 +1,4 @@
+from .timing import BlockTimer
 import torch
 from torch.nn import functional as F
 from .bottlenecks import normalize
@@ -86,10 +87,12 @@ class TaskController:
         self.inputs, self.frozen = state["inputs"], state["frozen"]
 
 
-def masked_step(loss, optimizer, masked, parameters, clip=1.):
+def masked_step(loss, optimizer, masked, parameters, clip=1., timer=None):
     """Protect against Adam momentum AND AdamW decay, not just gradient leakage."""
+    timer = timer or BlockTimer()
     optimizer.zero_grad(set_to_none=True)
-    loss.backward()
+    with timer.block('train: backward'):
+        loss.backward()
     backups = []
     for parameter, mask in masked:
         if parameter.grad is None:
@@ -99,8 +102,10 @@ def masked_step(loss, optimizer, masked, parameters, clip=1.):
         for value in optimizer.state.get(parameter, {}).values():
             if isinstance(value, torch.Tensor) and value.shape == parameter.shape:
                 value.mul_(mask)
-    torch.nn.utils.clip_grad_norm_(parameters, clip, error_if_nonfinite=True)
-    optimizer.step()
+    with timer.block('train: gradient clipping'):
+        torch.nn.utils.clip_grad_norm_(parameters, clip, error_if_nonfinite=True)
+    with timer.block('train: optimizer step'):
+        optimizer.step()
     with torch.no_grad():
         for (parameter, mask), before in zip(masked, backups):
             parameter[~mask] = before[~mask]

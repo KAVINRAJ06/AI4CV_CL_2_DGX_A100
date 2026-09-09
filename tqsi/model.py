@@ -1,4 +1,5 @@
 from pathlib import Path
+from .timing import BlockTimer
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -174,15 +175,24 @@ class TQSI(nn.Module):
         return normalize(self.projection(z))
 
     def forward(self, images):
-        z = self.backbone.encode(images)
+        timer = getattr(self, "timer", None) or BlockTimer()
+        with timer.block('model: frozen image encoder'):
+            z = self.backbone.encode(images)
         if self.feature_adapter is not None:
-            z = self.feature_adapter(z)
-        h = normalize(self.projection(z))
-        r = self.bottleneck(h)
+            with timer.block('model: spatial feature adapter'):
+                z = self.feature_adapter(z)
+        with timer.block('model: projection and normalization'):
+            h = normalize(self.projection(z))
+        with timer.block('model: bottleneck'):
+            r = self.bottleneck(h)
         if self.decoder_mode == "spatial_fpn":
-            return self.spatial_decoder(z, r, images, images.shape[-2:])
-        prompts = self.decoder_head(r).reshape(len(images), self.classes, self.backbone.channels)
+            with timer.block('model: spatial decoder'):
+                return self.spatial_decoder(z, r, images, images.shape[-2:])
+        with timer.block('model: prompt projection'):
+            prompts = self.decoder_head(r).reshape(len(images), self.classes, self.backbone.channels)
         if self.spatial_decoder_head is not None:
-            spatial = self.spatial_decoder_head(z).reshape(len(images), self.classes, self.backbone.channels, *z.shape[-2:])
+            with timer.block('model: spatial prompt adapter'):
+                spatial = self.spatial_decoder_head(z).reshape(len(images), self.classes, self.backbone.channels, *z.shape[-2:])
             prompts = spatial + prompts[..., None, None]
-        return self.backbone.decode(z, prompts, images.shape[-2:])
+        with timer.block('model: SAM prompt decoder'):
+            return self.backbone.decode(z, prompts, images.shape[-2:])
