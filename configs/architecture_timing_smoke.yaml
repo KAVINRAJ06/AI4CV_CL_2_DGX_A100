@@ -1,0 +1,7 @@
+# Isolated architecture timing; retains the full model dimensions at batch 1.
+extends: dgx_sota_continual.yaml
+output_dir: outputs/architecture_timing_smoke
+device: cuda:0
+batch_size: 1
+model:
+  sam_checkpoint: D:/AI4CV_CL_DGX_A100/models/sam_vit_b_01ec64.pth

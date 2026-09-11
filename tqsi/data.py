@@ -50,14 +50,26 @@ def read_crop(path, box, size, rgb=False):
     return np.array(image.resize((size, size), Image.Resampling.BILINEAR if rgb else Image.Resampling.NEAREST))
 
 
+@lru_cache(maxsize=1)
+def decoded_source(path, mtime_ns, file_size):
+    """Keep one decoded fallback source per process for adjacent tile reads.
+
+    Compressed TIFFs cannot be memory mapped. Pillow crop otherwise decodes
+    the entire source again for every tile. Metadata invalidates changed files.
+    """
+    with Image.open(path) as source:
+        source.load()
+        return source.copy()
+
+
 def read_native_crop(path, box):
     data = mapped_tiff(str(path)) if path.suffix.lower() in (".tif", ".tiff") else None
     if data is not None:
         left, top, right, bottom = box
         image = Image.fromarray(np.array(data[top:bottom, left:right]))
     else:
-        with Image.open(path) as source:
-            image = source.crop(box)
+        stat = path.stat()
+        image = decoded_source(str(path.resolve()), stat.st_mtime_ns, stat.st_size).crop(box)
     return image
 
 
@@ -145,11 +157,18 @@ def dataset_audit(cfg, manifest, directory, overlay_count=4):
     overlays = directory / "audit_overlays"
     overlays.mkdir(parents=True, exist_ok=True)
     for split, pairs in manifest["splits"].items():
+        print(f"Audit {cfg['name']}/{split}: indexing {len(pairs)} sources", flush=True)
         tiles = SegmentationDataset(cfg, pairs)
-        counts = [tiles._foreground_count(i) for i in range(len(tiles))]
+        counts = []
+        print(f"Audit {cfg['name']}/{split}: scanning {len(tiles)} tiles", flush=True)
+        for i in range(len(tiles)):
+            counts.append(tiles._foreground_count(i))
+            if (i + 1) % 128 == 0 or i + 1 == len(tiles):
+                print(f"Audit {cfg['name']}/{split}: {i + 1}/{len(tiles)} tiles", flush=True)
         report["splits"][split] = dict(sources=len(pairs), tiles=len(tiles), foreground_tiles=sum(c > 0 for c in counts),
             foreground_fraction=float(sum(counts) / max(1, sum((b[2]-b[0])*(b[3]-b[1]) for _, b in tiles.samples))) )
-        for pair in pairs:
+        print(f"Audit {cfg['name']}/{split}: counting source labels", flush=True)
+        for source_index, pair in enumerate(pairs):
             with Image.open(root / pair["image"]) as image, Image.open(root / pair["mask"]) as mask:
                 if image.size != mask.size:
                     report["alignment_errors"].append(pair["id"])
@@ -158,6 +177,8 @@ def dataset_audit(cfg, manifest, directory, overlay_count=4):
                     labels, amount = np.unique(raw, return_counts=True)
                     for label, n in zip(labels, amount):
                         report["raw_label_histogram"][str(int(label))] = report["raw_label_histogram"].get(str(int(label)), 0) + int(n)
+            if (source_index + 1) % 16 == 0 or source_index + 1 == len(pairs):
+                print(f"Audit {cfg['name']}/{split}: {source_index + 1}/{len(pairs)} source histograms", flush=True)
         for index in range(min(overlay_count, len(tiles))):
             image, target = tiles[index]
             rgb = (image.permute(1, 2, 0).numpy()*255).astype(np.uint8)

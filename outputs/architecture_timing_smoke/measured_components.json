@@ -1,0 +1,305 @@
+{
+  "config": {
+    "backbone": "sam",
+    "sam_checkpoint": "D:/AI4CV_CL_DGX_A100/models/sam_vit_b_01ec64.pth",
+    "sam_variant": "vit_b",
+    "bottleneck_type": "quantum",
+    "n_qubits": 8,
+    "n_layers": 6,
+    "mask_strategy": "qubit",
+    "hidden_dim": 96,
+    "num_classes": 1,
+    "decoder_spatial_adapter": true,
+    "decoder_mode": "spatial_fpn",
+    "decoder_width": 256,
+    "decoder_dropout": 0.1,
+    "decoder_image_refiner": true,
+    "adapter_rank": 32
+  },
+  "modules": {
+    "backbone": {
+      "total": 93735472,
+      "trainable": 0
+    },
+    "bottleneck": {
+      "total": 144,
+      "trainable": 144
+    },
+    "projection": {
+      "total": 66304,
+      "trainable": 66304
+    },
+    "feature_adapter": {
+      "total": 16385,
+      "trainable": 16385
+    },
+    "spatial_decoder": {
+      "total": 2230273,
+      "trainable": 2230273
+    }
+  },
+  "total_parameters": 96048578,
+  "trainable_parameters": 2313106,
+  "active_mask_parameters_per_task": [
+    72,
+    72
+  ],
+  "synthetic_profile": {
+    "gpu": "NVIDIA GeForce RTX 3050 Laptop GPU",
+    "batch_size": 1,
+    "torch": "2.5.1+cu121",
+    "image_size": 512,
+    "measured_steps_per_mode": 5,
+    "warmup_steps_per_mode": 2,
+    "mean_seconds": {
+      "train.sam_encoder": 0.4725472600082867,
+      "train.feature_adapter": 0.0005650800070725381,
+      "train.projection": 0.00036287998082116244,
+      "train.quantum_or_control": 0.09744439999340102,
+      "train.decoder_detail.stem": 0.001014160003978759,
+      "train.decoder_detail.film": 0.00012855998938903211,
+      "train.decoder_detail.body": 0.001929339999333024,
+      "train.decoder_detail.image": 0.007432000001426786,
+      "train.decoder_detail.refine": 0.06104813998099416,
+      "train.spatial_decoder": 0.07874305999139324,
+      "train.full_forward": 0.6503278199699707,
+      "train.segmentation_loss": 0.003005059983115643,
+      "train.backward": 0.2625862200045958,
+      "train.metrics": 0.008310260006692261,
+      "eval.sam_encoder": 0.46834373999154194,
+      "eval.feature_adapter": 0.0005132000078447163,
+      "eval.projection": 0.00033994000405073165,
+      "eval.quantum_or_control": 0.07782833999954164,
+      "eval.decoder_detail.stem": 0.0010131799848750235,
+      "eval.decoder_detail.film": 0.00012992001138627528,
+      "eval.decoder_detail.body": 0.0018843199941329658,
+      "eval.decoder_detail.image": 0.007403040013741702,
+      "eval.decoder_detail.refine": 0.06103617998305708,
+      "eval.spatial_decoder": 0.07861846000887454,
+      "eval.full_forward": 0.626224099996034,
+      "eval.segmentation_loss": 0.0021673799841664732,
+      "eval.metrics": 0.00817947998875752
+    },
+    "median_seconds": {
+      "train.sam_encoder": 0.47208890004549176,
+      "train.feature_adapter": 0.000533499987795949,
+      "train.projection": 0.00032890000147745013,
+      "train.quantum_or_control": 0.08918259997153655,
+      "train.decoder_detail.stem": 0.0010171000030823052,
+      "train.decoder_detail.film": 0.00012719997903332114,
+      "train.decoder_detail.body": 0.0019287000177428126,
+      "train.decoder_detail.image": 0.007406099990475923,
+      "train.decoder_detail.refine": 0.061038199986796826,
+      "train.spatial_decoder": 0.07865410001249984,
+      "train.full_forward": 0.6416427999502048,
+      "train.segmentation_loss": 0.002089400019031018,
+      "train.backward": 0.25638710003113374,
+      "train.metrics": 0.008262200048193336,
+      "eval.sam_encoder": 0.468244899995625,
+      "eval.feature_adapter": 0.0004762000171467662,
+      "eval.projection": 0.00029779999749735,
+      "eval.quantum_or_control": 0.0768413000041619,
+      "eval.decoder_detail.stem": 0.001003999961540103,
+      "eval.decoder_detail.film": 0.00012339995009824634,
+      "eval.decoder_detail.body": 0.001873799948953092,
+      "eval.decoder_detail.image": 0.007395000022370368,
+      "eval.decoder_detail.refine": 0.060992499988060445,
+      "eval.spatial_decoder": 0.07857630000216886,
+      "eval.full_forward": 0.6247738999663852,
+      "eval.segmentation_loss": 0.0018841999699361622,
+      "eval.metrics": 0.008238999987952411
+    },
+    "samples_seconds": {
+      "train.sam_encoder": [
+        0.4730808999738656,
+        0.4718081000028178,
+        0.4752885000198148,
+        0.47208890004549176,
+        0.47046989999944344
+      ],
+      "train.feature_adapter": [
+        0.0005156000261195004,
+        0.000533499987795949,
+        0.0007328999927267432,
+        0.0004922000225633383,
+        0.0005512000061571598
+      ],
+      "train.projection": [
+        0.00031109998235478997,
+        0.00031919998582452536,
+        0.0005088999751023948,
+        0.00034629995934665203,
+        0.00032890000147745013
+      ],
+      "train.quantum_or_control": [
+        0.08820790000027046,
+        0.09064830001443624,
+        0.13846649997867644,
+        0.08071670000208542,
+        0.08918259997153655
+      ],
+      "train.decoder_detail.stem": [
+        0.0010171000030823052,
+        0.0010218999814242125,
+        0.001005200028885156,
+        0.0010094000026583672,
+        0.0010172000038437545
+      ],
+      "train.decoder_detail.film": [
+        0.00012719997903332114,
+        0.00014969997573643923,
+        0.00011520000407472253,
+        0.00011409999569877982,
+        0.0001365999924018979
+      ],
+      "train.decoder_detail.body": [
+        0.0019287000177428126,
+        0.0019394999835640192,
+        0.001922000024933368,
+        0.0019203999545425177,
+        0.0019361000158824027
+      ],
+      "train.decoder_detail.image": [
+        0.007523200009018183,
+        0.007463699963409454,
+        0.007406099990475923,
+        0.0073779000085778534,
+        0.007389100035652518
+      ],
+      "train.decoder_detail.refine": [
+        0.061162800004240125,
+        0.06078889995114878,
+        0.061038199986796826,
+        0.06089389999397099,
+        0.061356899968814105
+      ],
+      "train.spatial_decoder": [
+        0.07897099998081103,
+        0.0785955999745056,
+        0.07865410001249984,
+        0.07844599999953061,
+        0.0790485999896191
+      ],
+      "train.full_forward": [
+        0.6416427999502048,
+        0.6424270999850705,
+        0.6947562999557704,
+        0.6325902999960817,
+        0.6402225999627262
+      ],
+      "train.segmentation_loss": [
+        0.0017783999792300165,
+        0.005262299964670092,
+        0.0017698999727144837,
+        0.004125299979932606,
+        0.002089400019031018
+      ],
+      "train.backward": [
+        0.26370770001085475,
+        0.25479219999397174,
+        0.2827907000319101,
+        0.25525339995510876,
+        0.25638710003113374
+      ],
+      "train.metrics": [
+        0.008752599998842925,
+        0.008345999987795949,
+        0.008029900025576353,
+        0.00816059997305274,
+        0.008262200048193336
+      ],
+      "eval.sam_encoder": [
+        0.47133369999937713,
+        0.46825799997895956,
+        0.46735499997157604,
+        0.468244899995625,
+        0.466527100012172
+      ],
+      "eval.feature_adapter": [
+        0.0005389000289142132,
+        0.0006265999982133508,
+        0.0004762000171467662,
+        0.0004611000185832381,
+        0.0004631999763660133
+      ],
+      "eval.projection": [
+        0.00030010001501068473,
+        0.0005294000147841871,
+        0.00028929999098181725,
+        0.00028310000197961926,
+        0.00029779999749735
+      ],
+      "eval.quantum_or_control": [
+        0.08116880001034588,
+        0.08612280001398176,
+        0.07283589994767681,
+        0.0768413000041619,
+        0.07217290002154186
+      ],
+      "eval.decoder_detail.stem": [
+        0.0010011999984271824,
+        0.0010409000096842647,
+        0.0010160999954678118,
+        0.001003999961540103,
+        0.001003699959255755
+      ],
+      "eval.decoder_detail.film": [
+        0.00010350003140047193,
+        0.00018960004672408104,
+        0.00012360000982880592,
+        0.00010950001887977123,
+        0.00012339995009824634
+      ],
+      "eval.decoder_detail.body": [
+        0.0018704999820329249,
+        0.0019242000416852534,
+        0.0018856999813579023,
+        0.001873799948953092,
+        0.0018674000166356564
+      ],
+      "eval.decoder_detail.image": [
+        0.00743910000892356,
+        0.007396499975584447,
+        0.007394100015517324,
+        0.007390500046312809,
+        0.007395000022370368
+      ],
+      "eval.decoder_detail.refine": [
+        0.060992499988060445,
+        0.06122329999925569,
+        0.0607365999603644,
+        0.06087340001249686,
+        0.06135509995510802
+      ],
+      "eval.spatial_decoder": [
+        0.07857630000216886,
+        0.07900560001144186,
+        0.07823640003334731,
+        0.07845169998472556,
+        0.07882230001268908
+      ],
+      "eval.full_forward": [
+        0.6324386000051163,
+        0.6354488999932073,
+        0.6196911000297405,
+        0.6247738999663852,
+        0.618767999985721
+      ],
+      "eval.segmentation_loss": [
+        0.0016919999616220593,
+        0.001960699970368296,
+        0.0035212000366300344,
+        0.0018841999699361622,
+        0.0017787999822758138
+      ],
+      "eval.metrics": [
+        0.008040999993681908,
+        0.008238999987952411,
+        0.00825089996214956,
+        0.008120000013150275,
+        0.00824649998685345
+      ]
+    },
+    "limitations": "Random inputs and initialized trainable weights; synchronized regions add overhead. full_forward includes all module timings; decoder_detail rows are nested inside spatial_decoder and must not be added again. Excludes dataset I/O, transfer, optimizer, replay, auxiliary losses, calibration and checkpointing. Not an epoch prediction."
+  }
+}

@@ -226,6 +226,22 @@ def test_tiff_crop_matches_pillow(tmp_path):
     assert np.array_equal(np.array(read_native_crop(path, (3, 5, 20, 25))), image[5:25, 3:20])
 
 
+def test_compressed_tiff_crops_decode_once(tmp_path):
+    from PIL import Image
+    from tqsi.data import read_native_crop, decoded_source, mapped_tiff
+    pixels = np.arange(64 * 64, dtype=np.uint16).reshape(64, 64)
+    path = tmp_path / 'compressed.tif'
+    Image.fromarray(pixels).save(path, compression='tiff_lzw')
+    assert mapped_tiff(str(path)) is None
+    decoded_source.cache_clear()
+    for box in [(0, 0, 16, 16), (16, 16, 32, 32), (32, 32, 64, 64)]:
+        left, top, right, bottom = box
+        assert np.array_equal(np.array(read_native_crop(path, box)), pixels[top:bottom, left:right])
+    assert decoded_source.cache_info().misses == 1
+    assert decoded_source.cache_info().hits == 2
+    decoded_source.cache_clear()
+
+
 def test_invalid_backbone_never_falls_back_to_tiny():
     with pytest.raises(ValueError, match='explicitly'):
         TQSI(dict(backbone='sma', bottleneck_type='quantum'), 2)
